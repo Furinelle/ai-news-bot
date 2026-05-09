@@ -11,9 +11,8 @@
     "template": "txt"
   },
   "limits": {
-    "max_items": 40,
-    "max_report_items": 15
+    "max_items": 60,
+    "max_report_items": 18
   },
   "database_path": "data/news_history.sqlite3"
 }
-

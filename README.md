@@ -12,6 +12,7 @@
 - OpenAI-compatible API 摘要，可接 OpenAI、DeepSeek、通义、硅基流动、本地 vLLM/Ollama 兼容服务等。
 - pushplus ClawBot 微信推送。
 - `--dry-run` 本地预览，`--send` 正式推送。
+- 默认生成约 18 条内容，每条包含“发生了什么 + 为什么值得看”，比纯快讯更耐读。
 
 ## 安装
 
@@ -51,6 +52,17 @@ $env:PUSHPLUS_TOKEN = "你的 pushplus token"
 ```
 
 如果使用 DeepSeek、硅基流动或其他 OpenAI-compatible 服务，只改 `base_url` 和 `model` 即可。
+
+想让日报更耐读，可以把 `config.json` 里的数量设成：
+
+```json
+{
+  "limits": {
+    "max_items": 60,
+    "max_report_items": 18
+  }
+}
+```
 
 ## pushplus ClawBot
 

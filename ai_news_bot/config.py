@@ -29,7 +29,7 @@ class PushplusConfig:
 @dataclass(frozen=True)
 class LimitsConfig:
     max_items: int = 30
-    max_report_items: int = 15
+    max_report_items: int = 18
 
 
 @dataclass(frozen=True)
@@ -77,7 +77,7 @@ def load_config(path: str | Path) -> AppConfig:
 
     limits = LimitsConfig(
         max_items=int(limits_raw.get("max_items", 30)),
-        max_report_items=int(limits_raw.get("max_report_items", 15)),
+        max_report_items=int(limits_raw.get("max_report_items", 18)),
     )
 
     return AppConfig(
@@ -86,4 +86,3 @@ def load_config(path: str | Path) -> AppConfig:
         limits=limits,
         database_path=str(raw.get("database_path", "data/news_history.sqlite3")),
     )
-

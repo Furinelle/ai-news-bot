@@ -40,6 +40,7 @@ class ConfigTests(unittest.TestCase):
                 self.assertEqual(config.pushplus.token, "push-secret")
                 self.assertEqual(config.pushplus.channel, "clawbot")
                 self.assertEqual(config.limits.max_items, 12)
+                self.assertEqual(config.limits.max_report_items, 18)
             finally:
                 os.environ.clear()
                 os.environ.update(old_env)
@@ -47,4 +48,3 @@ class ConfigTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
