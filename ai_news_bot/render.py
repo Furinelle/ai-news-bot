@@ -9,6 +9,10 @@ from .models import NewsItem
 SECTION_ORDER = ("科技热点", "AI动态", "GitHub Trending")
 
 
+def strip_markdown_emphasis(text: str) -> str:
+    return text.replace("**", "").replace("__", "")
+
+
 def default_date_label() -> str:
     now = datetime.now()
     return f"{now.year}年{now.month}月{now.day}日"
@@ -40,7 +44,10 @@ def render_fallback_report(items: list[NewsItem], date_label: str | None = None)
         for index, item in enumerate(section_items, start=1):
             summary = f" — {item.summary}" if item.summary else ""
             lines.append(f"{index}. {item.title}{summary}")
-            lines.append(f"   来源：{item.source} {item.url}")
+            if section == "GitHub Trending":
+                lines.append(f"   GitHub：{item.url}")
+            else:
+                lines.append(f"   来源：{item.source}")
 
     lines.extend(["", "───", "由 AI News Bot 自动生成，重大信息请以原文来源为准。"])
-    return "\n".join(lines).strip()
+    return strip_markdown_emphasis("\n".join(lines).strip())

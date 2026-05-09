@@ -24,6 +24,8 @@ class LlmTests(unittest.TestCase):
         self.assertEqual(payload["model"], "summary-model")
         self.assertIn("不得编造", joined)
         self.assertIn("翻译或改写为中文", joined)
+        self.assertIn("普通新闻不要输出链接", joined)
+        self.assertIn("不要使用 Markdown 加粗", joined)
         self.assertIn("https://example.com/chip", joined)
         self.assertIn("科技热点", joined)
         self.assertIn("GitHub Trending", joined)

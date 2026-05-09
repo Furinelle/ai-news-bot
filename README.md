@@ -78,7 +78,7 @@ ClawBot 通道通常需要你定期主动给机器人发消息以保持可推送
 python -m ai_news_bot.main --config config.json --sources sources.json --dry-run
 ```
 
-生成不用大模型的来源链接版日报：
+生成不用大模型的原文回退版日报：
 
 ```powershell
 python -m ai_news_bot.main --config config.json --sources sources.json --dry-run --no-llm
@@ -121,7 +121,8 @@ Register-ScheduledTask -TaskName "AI News Bot" -Action $Action -Trigger $Trigger
 模型提示词已要求：
 
 - 不得编造候选新闻之外的事实。
-- 每条保留来源链接。
+- 普通新闻只保留来源名，GitHub Trending 保留仓库链接，减少微信正文干扰。
+- 输出使用纯文本，不依赖 Markdown 加粗等微信可能不稳定支持的格式。
 - 重大新闻单来源时标注“未交叉验证”。
 
 这不能替代人工核查。涉及监管、融资、裁员、并购、安全事故等重大内容，建议在推送前人工扫一眼。

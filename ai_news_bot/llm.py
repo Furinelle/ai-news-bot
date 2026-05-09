@@ -3,17 +3,19 @@ from __future__ import annotations
 from typing import Any, Callable
 
 from .models import NewsItem
+from .render import strip_markdown_emphasis
 
 
 SYSTEM_PROMPT = """你是严谨的中文科技日报编辑。
 请根据用户提供的候选新闻生成中文日报，英文标题和摘要必须翻译或改写为中文。
 硬性规则：
 1. 只使用候选新闻中的事实，不得编造公司名、数字、日期、融资金额或发布内容。
-2. 每条必须保留来源链接。
+2. 普通新闻不要输出链接，只保留来源名；只有 GitHub Trending 条目可以输出 GitHub 仓库链接。
 3. 单来源重大新闻必须标注“未交叉验证”。
 4. 输出分为：科技热点、AI动态、GitHub Trending。
 5. 每条尽量不超过80个中文字符，风格简洁，适合微信推送。
 6. 日报标题使用“📡 Furina · 每日科技/AI日报”。
+7. 使用纯文本格式，不要使用 Markdown 加粗、标题井号、表格或代码块。
 """
 
 
@@ -78,4 +80,4 @@ def summarize_with_llm(
 
     response.raise_for_status()
     data = response.json()
-    return str(data["choices"][0]["message"]["content"]).strip()
+    return strip_markdown_emphasis(str(data["choices"][0]["message"]["content"]).strip())
