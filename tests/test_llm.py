@@ -27,6 +27,7 @@ class LlmTests(unittest.TestCase):
         self.assertIn("发生了什么", joined)
         self.assertIn("为什么值得看", joined)
         self.assertIn("120到180个中文字符", joined)
+        self.assertIn("每个分区内都必须使用 1. 2. 3. 编号", joined)
         self.assertIn("普通新闻不要输出链接", joined)
         self.assertIn("不要使用 Markdown 加粗", joined)
         self.assertIn("https://example.com/chip", joined)
