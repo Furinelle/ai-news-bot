@@ -7,6 +7,11 @@ from .models import NewsItem
 
 
 SECTION_ORDER = ("科技热点", "AI动态", "GitHub Trending")
+SECTION_HEADINGS = {
+    "科技热点": "一、🔥 科技热点",
+    "AI动态": "二、🤖 AI动态",
+    "GitHub Trending": "三、📦 GitHub Trending",
+}
 
 
 def strip_markdown_emphasis(text: str) -> str:
@@ -35,11 +40,7 @@ def render_fallback_report(items: list[NewsItem], date_label: str | None = None)
         section_items = grouped.get(section, [])
         if not section_items:
             continue
-        heading = "🔥 今日科技新闻热点" if section == "科技热点" else section
-        if section == "AI动态":
-            heading = "🤖 AI动态 · 重要动态"
-        if section == "GitHub Trending":
-            heading = "📦 GitHub Trending 热门项目"
+        heading = SECTION_HEADINGS[section]
         lines.extend(["", heading, ""])
         for index, item in enumerate(section_items, start=1):
             summary = f" — {item.summary}" if item.summary else ""

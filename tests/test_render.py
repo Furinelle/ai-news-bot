@@ -26,10 +26,11 @@ class RenderTests(unittest.TestCase):
 
         self.assertIn("📡 Furina · 每日科技/AI日报", report)
         self.assertIn("2026年5月9日", report)
+        self.assertIn("二、🤖 AI动态", report)
+        self.assertIn("三、📦 GitHub Trending", report)
         self.assertIn("来源：Example", report)
         self.assertNotIn("https://example.com/openai", report)
         self.assertIn("https://github.com/example/repo", report)
-        self.assertIn("AI动态", report)
 
     def test_strip_markdown_emphasis_removes_bold_markers(self):
         text = strip_markdown_emphasis("**重点** 和 __项目__")
