@@ -102,6 +102,8 @@ cd /opt/ai-news-bot
 python -m ai_news_bot.main --config config.json --sources sources.json --dry-run --no-llm
 ```
 
+This fallback mode keeps original source titles, so English sources may remain English. For a Chinese report, run the next LLM test without `--no-llm`.
+
 ## 8. Test with LLM but without push
 
 ```bash
@@ -156,4 +158,3 @@ systemctl restart ai-news-bot.timer
 - `config.json`, `sources.json`, `data/`, and `reports/` stay local on the VPS.
 - Do not commit real API keys or pushplus tokens.
 - If pushplus ClawBot stops delivering, open WeChat and send a message to ClawBot again, then retry.
-

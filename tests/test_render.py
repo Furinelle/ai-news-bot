@@ -24,7 +24,7 @@ class RenderTests(unittest.TestCase):
             date_label="2026年5月9日",
         )
 
-        self.assertIn("📡 Firefly · 每日科技/AI日报", report)
+        self.assertIn("📡 Furina · 每日科技/AI日报", report)
         self.assertIn("2026年5月9日", report)
         self.assertIn("https://example.com/openai", report)
         self.assertIn("https://github.com/example/repo", report)
@@ -33,4 +33,3 @@ class RenderTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

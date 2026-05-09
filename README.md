@@ -1,6 +1,6 @@
 # AI News Bot
 
-每日科技/AI日报机器人：抓取 RSS、Hacker News、GitHub Trending，去重排序后交给 OpenAI-compatible 大模型生成中文日报，并通过 pushplus 的 ClawBot 渠道推送到微信。
+每日科技/AI日报机器人：抓取 RSS、Hacker News、GitHub Trending，去重排序后交给 OpenAI-compatible 大模型生成中文 Furina 日报，并通过 pushplus 的 ClawBot 渠道推送到微信。
 
 ## 功能
 
@@ -84,6 +84,8 @@ python -m ai_news_bot.main --config config.json --sources sources.json --dry-run
 python -m ai_news_bot.main --config config.json --sources sources.json --dry-run --no-llm
 ```
 
+`--no-llm` 是原文回退模式，会保留英文来源标题；要中文日报请运行不带 `--no-llm` 的命令，让 DeepSeek 或其他大模型翻译和改写。
+
 正式推送到微信：
 
 ```powershell
@@ -123,4 +125,3 @@ Register-ScheduledTask -TaskName "AI News Bot" -Action $Action -Trigger $Trigger
 - 重大新闻单来源时标注“未交叉验证”。
 
 这不能替代人工核查。涉及监管、融资、裁员、并购、安全事故等重大内容，建议在推送前人工扫一眼。
-

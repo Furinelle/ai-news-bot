@@ -21,7 +21,7 @@ def render_fallback_report(items: list[NewsItem], date_label: str | None = None)
         grouped[item.category or "科技热点"].append(item)
 
     lines = [
-        "📡 Firefly · 每日科技/AI日报",
+        "📡 Furina · 每日科技/AI日报",
         label,
         "",
         "───",
