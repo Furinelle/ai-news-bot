@@ -1,0 +1,11 @@
+[Unit]
+Description=AI News Bot daily report
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/ai-news-bot
+EnvironmentFile=/etc/ai-news-bot.env
+ExecStart=/opt/ai-news-bot/.venv/bin/python -m ai_news_bot.main --config config.json --sources sources.json --send --out reports/daily.txt
+
