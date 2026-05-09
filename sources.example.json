@@ -1,0 +1,44 @@
+{
+  "rss": [
+    {
+      "name": "TechCrunch AI",
+      "url": "https://techcrunch.com/category/artificial-intelligence/feed/",
+      "category": "AI动态",
+      "limit": 20
+    },
+    {
+      "name": "The Verge",
+      "url": "https://www.theverge.com/rss/index.xml",
+      "category": "科技热点",
+      "limit": 20
+    },
+    {
+      "name": "OpenAI News",
+      "url": "https://openai.com/news/rss.xml",
+      "category": "AI动态",
+      "limit": 20
+    },
+    {
+      "name": "Google AI",
+      "url": "https://blog.google/technology/ai/rss/",
+      "category": "AI动态",
+      "limit": 20
+    },
+    {
+      "name": "GitHub Blog",
+      "url": "https://github.blog/feed/",
+      "category": "科技热点",
+      "limit": 20
+    }
+  ],
+  "hacker_news": {
+    "enabled": true,
+    "limit": 20
+  },
+  "github_trending": {
+    "enabled": true,
+    "since": "daily",
+    "limit": 10,
+    "languages": ["", "python", "javascript"]
+  }
+}

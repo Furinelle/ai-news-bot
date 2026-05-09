@@ -1,0 +1,19 @@
+{
+  "llm": {
+    "base_url": "https://api.openai.com/v1",
+    "api_key_env": "LLM_API_KEY",
+    "model": "gpt-4.1-mini",
+    "temperature": 0.2
+  },
+  "pushplus": {
+    "token_env": "PUSHPLUS_TOKEN",
+    "channel": "clawbot",
+    "template": "txt"
+  },
+  "limits": {
+    "max_items": 40,
+    "max_report_items": 15
+  },
+  "database_path": "data/news_history.sqlite3"
+}
+
