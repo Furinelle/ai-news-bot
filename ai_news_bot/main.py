@@ -9,7 +9,7 @@ from .dedupe import dedupe_items
 from .fetch_github import fetch_github_trending
 from .fetch_hn import fetch_hacker_news
 from .fetch_rss import fetch_rss_feed
-from .llm import summarize_with_llm
+from .llm import LlmError, summarize_with_llm
 from .models import NewsItem
 from .pushplus import send_pushplus
 from .rank import select_report_items
@@ -71,6 +71,7 @@ def build_report(
                 model=config.llm.model,
                 items=selected,
                 temperature=config.llm.temperature,
+                timeout_seconds=config.llm.timeout_seconds,
             )
         else:
             report = render_fallback_report(selected)
@@ -116,7 +117,7 @@ def main() -> int:
         )
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
-    except (ConfigError, OSError, KeyError, ValueError) as exc:
+    except (ConfigError, LlmError, OSError, KeyError, ValueError) as exc:
         print(f"ERROR: {exc}")
         return 2
 

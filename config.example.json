@@ -3,7 +3,8 @@
     "base_url": "https://api.openai.com/v1",
     "api_key_env": "LLM_API_KEY",
     "model": "gpt-4.1-mini",
-    "temperature": 0.2
+    "temperature": 0.2,
+    "timeout_seconds": 180
   },
   "pushplus": {
     "token_env": "PUSHPLUS_TOKEN",

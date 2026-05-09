@@ -17,6 +17,7 @@ class ConfigTests(unittest.TestCase):
                             "base_url": "https://api.example.com/v1",
                             "api_key_env": "TEST_LLM_KEY",
                             "model": "news-model",
+                            "timeout_seconds": 240,
                         },
                         "pushplus": {
                             "token_env": "TEST_PUSHPLUS_TOKEN",
@@ -37,6 +38,7 @@ class ConfigTests(unittest.TestCase):
 
                 self.assertEqual(config.llm.api_key, "llm-secret")
                 self.assertEqual(config.llm.model, "news-model")
+                self.assertEqual(config.llm.timeout_seconds, 240)
                 self.assertEqual(config.pushplus.token, "push-secret")
                 self.assertEqual(config.pushplus.channel, "clawbot")
                 self.assertEqual(config.limits.max_items, 12)

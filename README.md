@@ -46,7 +46,8 @@ $env:PUSHPLUS_TOKEN = "你的 pushplus token"
   "llm": {
     "base_url": "https://api.openai.com/v1",
     "api_key_env": "LLM_API_KEY",
-    "model": "gpt-4.1-mini"
+    "model": "gpt-4.1-mini",
+    "timeout_seconds": 180
   }
 }
 ```
@@ -63,6 +64,8 @@ $env:PUSHPLUS_TOKEN = "你的 pushplus token"
   }
 }
 ```
+
+如果 DeepSeek 生成较慢并出现 `LLM request timed out`，优先把 `llm.timeout_seconds` 提到 `240` 或 `300`；如果仍超时，再把 `max_report_items` 调低到 `12`。
 
 ## pushplus ClawBot
 

@@ -1,6 +1,6 @@
 import unittest
 
-from ai_news_bot.llm import build_chat_payload
+from ai_news_bot.llm import LlmError, build_chat_payload, summarize_with_llm
 from ai_news_bot.models import NewsItem
 
 
@@ -32,6 +32,25 @@ class LlmTests(unittest.TestCase):
         self.assertIn("https://example.com/chip", joined)
         self.assertIn("科技热点", joined)
         self.assertIn("GitHub Trending", joined)
+
+    def test_summarize_with_llm_uses_configurable_timeout_and_wraps_timeout_errors(self):
+        calls = []
+
+        def post(_url, **kwargs):
+            calls.append(kwargs)
+            raise TimeoutError("slow provider")
+
+        with self.assertRaisesRegex(LlmError, "LLM request timed out"):
+            summarize_with_llm(
+                base_url="https://api.example.com",
+                api_key="secret",
+                model="summary-model",
+                items=[],
+                timeout_seconds=240,
+                post=post,
+            )
+
+        self.assertEqual(calls[0]["timeout"], 240)
 
 
 if __name__ == "__main__":

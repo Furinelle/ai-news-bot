@@ -66,10 +66,25 @@ For any OpenAI-compatible provider, change only:
 {
   "llm": {
     "base_url": "https://api.example.com/v1",
-    "model": "your-model-name"
+    "model": "your-model-name",
+    "timeout_seconds": 180
   }
 }
 ```
+
+For DeepSeek, a practical starting point is:
+
+```json
+{
+  "llm": {
+    "base_url": "https://api.deepseek.com",
+    "model": "deepseek-chat",
+    "timeout_seconds": 240
+  }
+}
+```
+
+If a longer report times out, increase `timeout_seconds` to `300`, or reduce `limits.max_report_items` to `12`.
 
 ## 6. Store secrets outside the repository
 

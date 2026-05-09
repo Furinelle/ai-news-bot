@@ -17,6 +17,7 @@ class LlmConfig:
     api_key: str
     model: str
     temperature: float = 0.2
+    timeout_seconds: float = 180.0
 
 
 @dataclass(frozen=True)
@@ -63,6 +64,7 @@ def load_config(path: str | Path) -> AppConfig:
         api_key=_required_env(str(llm_raw.get("api_key_env", "LLM_API_KEY"))),
         model=str(llm_raw.get("model", "")).strip(),
         temperature=float(llm_raw.get("temperature", 0.2)),
+        timeout_seconds=float(llm_raw.get("timeout_seconds", 180)),
     )
     if not llm.base_url:
         raise ConfigError("llm.base_url is required")

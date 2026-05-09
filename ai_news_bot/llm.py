@@ -6,6 +6,10 @@ from .models import NewsItem
 from .render import strip_markdown_emphasis
 
 
+class LlmError(RuntimeError):
+    pass
+
+
 SYSTEM_PROMPT = """你是严谨的中文科技日报编辑。
 请根据用户提供的候选新闻生成中文日报，英文标题和摘要必须翻译或改写为中文。
 硬性规则：
@@ -64,6 +68,7 @@ def summarize_with_llm(
     model: str,
     items: list[NewsItem],
     temperature: float = 0.2,
+    timeout_seconds: float = 180,
     post: Callable[..., Any] | None = None,
 ) -> str:
     payload = build_chat_payload(model=model, items=items, temperature=temperature)
@@ -73,11 +78,26 @@ def summarize_with_llm(
     if post is None:
         import httpx
 
-        with httpx.Client(timeout=60) as client:
-            response = client.post(url, headers=headers, json=payload)
+        try:
+            with httpx.Client(timeout=timeout_seconds) as client:
+                response = client.post(url, headers=headers, json=payload)
+        except httpx.TimeoutException as exc:
+            raise LlmError(
+                f"LLM request timed out after {timeout_seconds:g}s. "
+                "Try again, reduce limits.max_report_items, or increase llm.timeout_seconds."
+            ) from exc
     else:
-        response = post(url, headers=headers, json=payload, timeout=60)
+        try:
+            response = post(url, headers=headers, json=payload, timeout=timeout_seconds)
+        except TimeoutError as exc:
+            raise LlmError(
+                f"LLM request timed out after {timeout_seconds:g}s. "
+                "Try again, reduce limits.max_report_items, or increase llm.timeout_seconds."
+            ) from exc
 
-    response.raise_for_status()
+    try:
+        response.raise_for_status()
+    except Exception as exc:
+        raise LlmError(f"LLM request failed: {exc}") from exc
     data = response.json()
     return strip_markdown_emphasis(str(data["choices"][0]["message"]["content"]).strip())
