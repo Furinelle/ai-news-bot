@@ -44,9 +44,12 @@ def _format_items(items: list[NewsItem]) -> str:
 def build_chat_payload(
     model: str,
     items: list[NewsItem],
+    date_label: str,
     temperature: float = 0.2,
 ) -> dict[str, Any]:
     user_prompt = f"""请把以下候选新闻整理成日报。
+日报日期：{date_label}
+必须原样使用这个日期，不要自行推断、改写或替换日期。
 
 候选新闻：
 {_format_items(items)}
@@ -55,7 +58,7 @@ def build_chat_payload(
 
 输出骨架：
 📡 Furina · 每日科技/AI日报
-日期
+{date_label}
 
 ───
 
@@ -89,11 +92,17 @@ def summarize_with_llm(
     api_key: str,
     model: str,
     items: list[NewsItem],
+    date_label: str,
     temperature: float = 0.2,
     timeout_seconds: float = 180,
     post: Callable[..., Any] | None = None,
 ) -> str:
-    payload = build_chat_payload(model=model, items=items, temperature=temperature)
+    payload = build_chat_payload(
+        model=model,
+        items=items,
+        date_label=date_label,
+        temperature=temperature,
+    )
     url = f"{base_url.rstrip('/')}/chat/completions"
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
 

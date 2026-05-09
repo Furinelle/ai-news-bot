@@ -8,6 +8,7 @@ class LlmTests(unittest.TestCase):
     def test_build_chat_payload_includes_fact_safety_rules_and_sources(self):
         payload = build_chat_payload(
             model="summary-model",
+            date_label="2026年5月9日",
             items=[
                 NewsItem(
                     title="A chip startup tapes out a new AI chip",
@@ -22,6 +23,8 @@ class LlmTests(unittest.TestCase):
         joined = "\n".join(message["content"] for message in payload["messages"])
 
         self.assertEqual(payload["model"], "summary-model")
+        self.assertIn("2026年5月9日", joined)
+        self.assertIn("必须原样使用这个日期", joined)
         self.assertIn("不得编造", joined)
         self.assertIn("翻译或改写为中文", joined)
         self.assertIn("发生了什么", joined)
@@ -50,6 +53,7 @@ class LlmTests(unittest.TestCase):
                 api_key="secret",
                 model="summary-model",
                 items=[],
+                date_label="2026年5月9日",
                 timeout_seconds=240,
                 post=post,
             )

@@ -13,7 +13,7 @@ from .llm import LlmError, summarize_with_llm
 from .models import NewsItem
 from .pushplus import send_pushplus
 from .rank import select_report_items
-from .render import render_fallback_report
+from .render import default_date_label, render_fallback_report
 from .storage import NewsStore
 
 
@@ -60,6 +60,7 @@ def build_report(
     config = load_config(config_path)
     sources = load_sources(sources_path)
     items = collect_items(sources, max_items=config.limits.max_items)
+    date_label = default_date_label()
 
     with NewsStore(config.database_path) as store:
         new_items = store.filter_new(items)
@@ -70,11 +71,12 @@ def build_report(
                 api_key=config.llm.api_key,
                 model=config.llm.model,
                 items=selected,
+                date_label=date_label,
                 temperature=config.llm.temperature,
                 timeout_seconds=config.llm.timeout_seconds,
             )
         else:
-            report = render_fallback_report(selected)
+            report = render_fallback_report(selected, date_label=date_label)
         if mark_seen:
             store.mark_seen(selected)
     return report, selected
