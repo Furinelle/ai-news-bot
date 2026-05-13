@@ -1,0 +1,35 @@
+{
+  "provider_id": {
+    "type": "string",
+    "description": "LLM模型",
+    "hint": "选择provider",
+    "_special": "select_provider",
+    "default": ""
+  },
+  "schedule_time": {
+    "type": "string",
+    "description": "每日推送时间",
+    "hint": "HH:MM格式上海时区留空禁用",
+    "default": "08:00"
+  },
+  "max_report_items": {
+    "type": "int",
+    "description": "日报条目数量",
+    "default": 18
+  },
+  "enable_pushplus": {
+    "type": "bool",
+    "description": "同时通过PushPlus推送",
+    "default": false
+  },
+  "pushplus_token": {
+    "type": "string",
+    "description": "PushPlus Token",
+    "default": ""
+  },
+  "pushplus_channel": {
+    "type": "string",
+    "description": "PushPlus渠道",
+    "default": "clawbot"
+  }
+}

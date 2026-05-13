@@ -1,0 +1,72 @@
+{
+  "rss": [
+    {
+      "name": "TechCrunch AI",
+      "url": "https://techcrunch.com/category/artificial-intelligence/feed/",
+      "category": "AI动态",
+      "limit": 10
+    },
+    {
+      "name": "The Verge",
+      "url": "https://www.theverge.com/rss/index.xml",
+      "category": "科技热点",
+      "limit": 10
+    },
+    {
+      "name": "OpenAI Blog",
+      "url": "https://openai.com/blog/rss.xml",
+      "category": "AI动态",
+      "limit": 5
+    },
+    {
+      "name": "Google AI Blog",
+      "url": "https://blog.google/technology/ai/rss/",
+      "category": "AI动态",
+      "limit": 5
+    },
+    {
+      "name": "GitHub Blog",
+      "url": "https://github.blog/feed/",
+      "category": "科技热点",
+      "limit": 5
+    },
+    {
+      "name": "Ars Technica",
+      "url": "https://feeds.arstechnica.com/arstechnica/index",
+      "category": "科技热点",
+      "limit": 8
+    },
+    {
+      "name": "MIT Technology Review",
+      "url": "https://www.technologyreview.com/feed/",
+      "category": "AI动态",
+      "limit": 8
+    },
+    {
+      "name": "VentureBeat AI",
+      "url": "https://venturebeat.com/ai/feed/",
+      "category": "AI动态",
+      "limit": 8
+    },
+    {
+      "name": "Wired",
+      "url": "https://www.wired.com/feed/rss",
+      "category": "科技热点",
+      "limit": 8
+    }
+  ],
+  "hacker_news": {
+    "enabled": true,
+    "limit": 20
+  },
+  "github_trending": {
+    "enabled": true,
+    "since": "daily",
+    "limit": 10,
+    "languages": [
+      "",
+      "python",
+      "javascript"
+    ]
+  }
+}
