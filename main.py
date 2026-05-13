@@ -22,11 +22,6 @@ from .ai_news_bot.render import render_fallback_report
 from .ai_news_bot.storage import NewsStore
 from .ai_news_bot.models import NewsItem
 
-try:
-    from .ai_news_bot.pushplus import send_pushplus
-except ImportError:
-    send_pushplus = None
-
 
 SYSTEM_PROMPT = """你是严谨的中文科技日报编辑。
 请根据用户提供的候选新闻生成中文日报，英文标题和摘要必须翻译或改写为中文。
@@ -108,47 +103,12 @@ class AiNewsBotPlugin(Star):
     def __init__(self, context: Context, config: dict[str, Any] | None = None):
         super().__init__(context)
         self.config = config or {}
-        self._cron_job_name = "astrbot_plugin_ai_news_bot_daily_push"
-        self._cron_job_id: str | None = None
         self._plugin_dir = Path(__file__).parent
         self._data_dir: Path | None = None
 
     async def initialize(self):
         self._data_dir = StarTools.get_data_dir("astrbot_plugin_ai_news_bot")
         self._data_dir.mkdir(parents=True, exist_ok=True)
-
-        schedule_time = str(self._conf("schedule_time", "") or "").strip()
-        if not schedule_time:
-            return
-
-        cron_expression = self._schedule_to_cron(schedule_time)
-        cron_manager = getattr(self.context, "cron_manager", None)
-        if cron_manager is None:
-            return
-
-        job = await cron_manager.add_basic_job(
-            name=self._cron_job_name,
-            cron_expression=cron_expression,
-            handler=self._daily_push,
-            description="AI科技日报每日定时推送",
-            timezone="Asia/Shanghai",
-            persistent=False,
-        )
-        self._cron_job_id = getattr(job, "job_id", None)
-
-    async def terminate(self):
-        cron_manager = getattr(self.context, "cron_manager", None)
-        if cron_manager is None:
-            return
-
-        if self._cron_job_id:
-            await cron_manager.delete_job(self._cron_job_id)
-            self._cron_job_id = None
-            return
-
-        for job in await cron_manager.list_jobs("basic"):
-            if getattr(job, "name", None) == self._cron_job_name:
-                await cron_manager.delete_job(job.job_id)
 
     def _split_sections(self, report: str) -> list[str]:
         import re
@@ -204,28 +164,6 @@ class AiNewsBotPlugin(Star):
             system_prompt=system_prompt,
         )
         return str(response.completion_text).strip()
-
-    async def _daily_push(self):
-        content = await self._run_report(mark_seen=True)
-        if not self._conf("enable_pushplus", False):
-            return
-        if send_pushplus is None:
-            return
-
-        token = str(self._conf("pushplus_token", "") or "").strip()
-        if not token:
-            return
-
-        channel = str(self._conf("pushplus_channel", "clawbot") or "clawbot").strip()
-        title = "📡 Furina · 每日科技/AI日报"
-        await asyncio.to_thread(
-            send_pushplus,
-            token,
-            title,
-            content,
-            channel,
-            "markdown",
-        )
 
     def _conf(self, key: str, default: Any = None) -> Any:
         if isinstance(self.config, dict):
@@ -309,16 +247,6 @@ class AiNewsBotPlugin(Star):
     def _mark_seen_sync(self, data_dir: Path, items: list[NewsItem]) -> None:
         with NewsStore(str(data_dir / "news_seen.sqlite3")) as store:
             store.mark_seen(items)
-
-    def _schedule_to_cron(self, schedule_time: str) -> str:
-        match = re.fullmatch(r"(\d{1,2}):(\d{2})", schedule_time)
-        if not match:
-            raise ValueError("schedule_time 必须是 HH:MM 格式")
-        hour = int(match.group(1))
-        minute = int(match.group(2))
-        if hour > 23 or minute > 59:
-            raise ValueError("schedule_time 必须是有效的 HH:MM 时间")
-        return f"{minute} {hour} * * *"
 
     def _date_label(self) -> str:
         now = datetime.now(ZoneInfo("Asia/Shanghai"))
