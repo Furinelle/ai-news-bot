@@ -13,8 +13,14 @@
       "limit": 10
     },
     {
+      "name": "The Verge AI",
+      "url": "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml",
+      "category": "AI动态",
+      "limit": 8
+    },
+    {
       "name": "OpenAI Blog",
-      "url": "https://openai.com/blog/rss.xml",
+      "url": "https://openai.com/news/rss.xml",
       "category": "AI动态",
       "limit": 5
     },
@@ -37,6 +43,12 @@
       "limit": 8
     },
     {
+      "name": "Ars Technica AI",
+      "url": "https://arstechnica.com/ai/feed/",
+      "category": "AI动态",
+      "limit": 8
+    },
+    {
       "name": "MIT Technology Review",
       "url": "https://www.technologyreview.com/feed/",
       "category": "AI动态",
@@ -53,6 +65,42 @@
       "url": "https://www.wired.com/feed/rss",
       "category": "科技热点",
       "limit": 8
+    },
+    {
+      "name": "Hugging Face Blog",
+      "url": "https://huggingface.co/blog/feed.xml",
+      "category": "AI动态",
+      "limit": 8
+    },
+    {
+      "name": "MarkTechPost",
+      "url": "https://www.marktechpost.com/feed/",
+      "category": "AI动态",
+      "limit": 8
+    },
+    {
+      "name": "DailyAI",
+      "url": "https://dailyai.com/feed/",
+      "category": "AI动态",
+      "limit": 8
+    },
+    {
+      "name": "TLDR AI",
+      "url": "https://tldr.tech/api/rss/ai",
+      "category": "AI动态",
+      "limit": 5
+    },
+    {
+      "name": "AI News",
+      "url": "https://www.artificialintelligence-news.com/feed/",
+      "category": "AI动态",
+      "limit": 8
+    },
+    {
+      "name": "Unite.AI",
+      "url": "https://www.unite.ai/feed/",
+      "category": "AI动态",
+      "limit": 8
     }
   ],
   "hacker_news": {
@@ -64,9 +112,7 @@
     "since": "daily",
     "limit": 5,
     "languages": [
-      "",
-      "python",
-      "javascript"
+      ""
     ]
   }
 }

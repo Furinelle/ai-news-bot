@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.4.0] - 2026-05-13
+
+### 新增
+- 新增 7 个 RSS 源：The Verge AI、Ars Technica AI、Hugging Face Blog、MarkTechPost、DailyAI、TLDR AI、AI News、Unite.AI，大幅扩充 AI动态内容
+
+### 修复
+- OpenAI Blog RSS URL 修正（`/blog/rss.xml` → `/news/rss.xml`）
+- GitHub Trending 改为只抓全语言榜单（移除 python、javascript 分类榜），消除跨语言榜单重复条目
+
+---
+
 ## [1.3.2] - 2026-05-13
 
 ### 变更
