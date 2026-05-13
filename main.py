@@ -13,17 +13,17 @@ from astrbot.api.all import Star, Context, register, AstrMessageEvent
 from astrbot.api.event import filter
 from astrbot.core.star.star_tools import StarTools
 
-from ai_news_bot.fetch_rss import fetch_rss_feed
-from ai_news_bot.fetch_hn import fetch_hacker_news
-from ai_news_bot.fetch_github import fetch_github_trending
-from ai_news_bot.dedupe import dedupe_items
-from ai_news_bot.rank import rank_items
-from ai_news_bot.render import render_fallback_report
-from ai_news_bot.storage import NewsStore
-from ai_news_bot.models import NewsItem
+from .ai_news_bot.fetch_rss import fetch_rss_feed
+from .ai_news_bot.fetch_hn import fetch_hacker_news
+from .ai_news_bot.fetch_github import fetch_github_trending
+from .ai_news_bot.dedupe import dedupe_items
+from .ai_news_bot.rank import rank_items
+from .ai_news_bot.render import render_fallback_report
+from .ai_news_bot.storage import NewsStore
+from .ai_news_bot.models import NewsItem
 
 try:
-    from ai_news_bot.pushplus import send_pushplus
+    from .ai_news_bot.pushplus import send_pushplus
 except ImportError:
     send_pushplus = None
 
