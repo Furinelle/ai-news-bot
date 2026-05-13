@@ -31,7 +31,7 @@ SYSTEM_PROMPT = """你是严谨的中文科技日报编辑。
 2. 单来源重大新闻必须标注"未交叉验证"。
 3. 日报头部使用 "# 📡 Furina · 每日科技/AI日报"（Markdown 一级标题）。
 4. 输出固定三节，节标题分别是：## 🔥 科技热点 / ## 🤖 AI动态 / ## 📦 GitHub Trending。
-5. 【数量要求】科技热点 6~8 条，AI动态 6~8 条，GitHub Trending 恰好 10 条。
+5. 【数量要求】科技热点 6~8 条，AI动态 6~8 条，GitHub Trending 恰好 5 条。
 6. 【序号要求】每节内部必须用 1. 2. 3. 阿拉伯数字编号，从 1 开始，禁止用项目符号（-）或字母。
 7. 【格式要求】每条正文写 1~2 句说明"发生了什么"和"为什么值得看"，控制在 80~150 个中文字符。
 8. 【来源标注】科技热点和 AI动态 每条末尾加括号注明来源媒体，格式：（来源：媒体名）。不要输出完整 URL。
@@ -102,7 +102,7 @@ def _build_user_prompt(items: list[NewsItem], date_label: str) -> str:
 
 1. [用户名/仓库名](https://github.com/用户名/仓库名) 正文一两句描述。
 2. [用户名/仓库名](https://github.com/用户名/仓库名) 正文一两句描述。
-（恰好 10 条，每条都要有 GitHub 链接）
+（恰好 5 条，每条都要有 GitHub 链接）
 """
 
 
@@ -223,7 +223,7 @@ class AiNewsBotPlugin(Star):
                 grouped[item.category or "科技热点"].append(item)
             fallback_items: list[NewsItem] = []
             for cat, cat_items in grouped.items():
-                cap = 10 if cat == "GitHub Trending" else 8
+                cap = 5 if cat == "GitHub Trending" else 8
                 fallback_items.extend(cat_items[:cap])
             content = render_fallback_report(fallback_items, date_label)
 

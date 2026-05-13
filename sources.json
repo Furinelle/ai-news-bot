@@ -62,7 +62,7 @@
   "github_trending": {
     "enabled": true,
     "since": "daily",
-    "limit": 10,
+    "limit": 5,
     "languages": [
       "",
       "python",
