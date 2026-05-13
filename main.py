@@ -106,6 +106,32 @@ def _build_user_prompt(items: list[NewsItem], date_label: str) -> str:
 """
 
 
+def _is_item_line(line: str) -> bool:
+    if not line.strip():
+        return False
+    if line.startswith('#'):
+        return False
+    if re.match(r'^[-─=*]{3,}$', line.strip()):
+        return False
+    if line[0] in (' ', '\t'):
+        return False
+    if line.strip().startswith('（'):
+        return False
+    if re.match(r'^\d{4}年', line):
+        return False
+    return True
+
+
+def _strip_item_prefix(line: str) -> str:
+    m = re.match(r'^\d+\.\s+(.*)', line, re.DOTALL)
+    if m:
+        return m.group(1)
+    m = re.match(r'^[-•]\s+(.*)', line, re.DOTALL)
+    if m:
+        return m.group(1)
+    return line
+
+
 @register(
     "astrbot_plugin_ai_news_bot",
     "Furinelle",
@@ -158,24 +184,27 @@ class AiNewsBotPlugin(Star):
                 await cron_manager.delete_job(job.job_id)
 
     def _fix_numbering(self, report: str) -> str:
-        """将 LLM 输出的项目符号（- / •）转为阿拉伯数字序号。"""
+        """强制为 LLM 每节条目编号（适配无标记、- 符号、已有序号三种格式）。"""
         chunks = re.split(r'(\n##\s[^\n]+)', report)
         result = []
+        in_section = False
         for chunk in chunks:
-            if chunk.startswith('\n##') or not chunk.strip():
+            if chunk.startswith('\n##'):
+                in_section = True
+                result.append(chunk)
+                continue
+            if not in_section:
                 result.append(chunk)
                 continue
             lines = chunk.split('\n')
             counter = 0
             new_lines = []
             for line in lines:
-                m = re.match(r'^[-•]\s+(.+)', line)
-                if m:
+                if _is_item_line(line):
                     counter += 1
-                    new_lines.append(f"{counter}. {m.group(1)}")
+                    content = _strip_item_prefix(line)
+                    new_lines.append(f"{counter}. {content}")
                 else:
-                    if re.match(r'^\d+\.\s', line):
-                        counter += 1
                     new_lines.append(line)
             result.append('\n'.join(new_lines))
         return ''.join(result)
