@@ -207,14 +207,25 @@ class AiNewsBotPlugin(Star):
         date_label = self._date_label()
         provider_id = str(self._conf("provider_id", "") or "").strip()
         content = ""
-        if provider_id:
+        if not provider_id:
+            logger.warning("[AI News Bot] provider_id 未配置，使用回退模式（无 LLM）")
+        else:
             try:
                 content = await self._llm_summarize(provider_id, items, date_label)
-            except Exception:
-                content = ""
+            except Exception as e:
+                logger.error(f"[AI News Bot] LLM 调用失败，回退为原文模式：{e}")
 
         if not content:
-            content = render_fallback_report(items, date_label)
+            # 回退模式：限制每节条目数，避免 GitHub Trending 大量溢出
+            from collections import defaultdict
+            grouped: dict[str, list[NewsItem]] = defaultdict(list)
+            for item in items:
+                grouped[item.category or "科技热点"].append(item)
+            fallback_items: list[NewsItem] = []
+            for cat, cat_items in grouped.items():
+                cap = 10 if cat == "GitHub Trending" else 8
+                fallback_items.extend(cat_items[:cap])
+            content = render_fallback_report(fallback_items, date_label)
 
         content = self._fix_numbering(content)
 
