@@ -35,7 +35,7 @@ SYSTEM_PROMPT = """你是严谨的中文科技日报编辑。
 6. 【序号要求】每节内部必须用 1. 2. 3. 阿拉伯数字编号，从 1 开始，禁止用项目符号（-）或字母。
 7. 【格式要求】每条正文写 1~2 句说明"发生了什么"和"为什么值得看"，控制在 80~150 个中文字符。
 8. 【来源标注】科技热点和 AI动态 每条末尾加括号注明来源媒体，格式：（来源：媒体名）。不要输出完整 URL。
-9. 【GitHub 链接】GitHub Trending 每条必须附上仓库 Markdown 链接，格式：[用户名/仓库名](https://github.com/...)，放在正文之前。
+9. 【GitHub 链接】候选新闻中每条 GitHub Trending 条目已提供"仓库链接（必须原样保留）"字段，输出时必须将该 Markdown 链接原样放在正文之前，禁止修改或省略链接。
 10. 重要词语或关键数字可用 **加粗**。
 """
 
@@ -43,17 +43,30 @@ SYSTEM_PROMPT = """你是严谨的中文科技日报编辑。
 def _format_items(items: list[NewsItem]) -> str:
     lines = []
     for index, item in enumerate(items, start=1):
-        lines.append(
-            "\n".join(
-                [
-                    f"{index}. 标题：{item.title}",
-                    f"   分类：{item.category}",
-                    f"   来源：{item.source}",
-                    f"   链接：{item.url}",
-                    f"   摘要：{item.summary or '无'}",
-                ]
+        if item.category == "GitHub Trending":
+            # 预格式化 markdown 链接，LLM 直接复制，无需自行生成
+            link = f"[{item.title}]({item.url})"
+            lines.append(
+                "\n".join(
+                    [
+                        f"{index}. 分类：GitHub Trending",
+                        f"   仓库链接（必须原样保留）：{link}",
+                        f"   摘要：{item.summary or '无'}",
+                    ]
+                )
             )
-        )
+        else:
+            lines.append(
+                "\n".join(
+                    [
+                        f"{index}. 标题：{item.title}",
+                        f"   分类：{item.category}",
+                        f"   来源：{item.source}",
+                        f"   链接：{item.url}",
+                        f"   摘要：{item.summary or '无'}",
+                    ]
+                )
+            )
     return "\n".join(lines)
 
 
@@ -144,6 +157,29 @@ class AiNewsBotPlugin(Star):
             if getattr(job, "name", None) == self._cron_job_name:
                 await cron_manager.delete_job(job.job_id)
 
+    def _fix_numbering(self, report: str) -> str:
+        """将 LLM 输出的项目符号（- / •）转为阿拉伯数字序号。"""
+        chunks = re.split(r'(\n##\s[^\n]+)', report)
+        result = []
+        for chunk in chunks:
+            if chunk.startswith('\n##') or not chunk.strip():
+                result.append(chunk)
+                continue
+            lines = chunk.split('\n')
+            counter = 0
+            new_lines = []
+            for line in lines:
+                m = re.match(r'^[-•]\s+(.+)', line)
+                if m:
+                    counter += 1
+                    new_lines.append(f"{counter}. {m.group(1)}")
+                else:
+                    if re.match(r'^\d+\.\s', line):
+                        counter += 1
+                    new_lines.append(line)
+            result.append('\n'.join(new_lines))
+        return ''.join(result)
+
     def _split_sections(self, report: str) -> list[str]:
         import re
         parts = re.split(r'\n(?=##\s)', report)
@@ -179,6 +215,8 @@ class AiNewsBotPlugin(Star):
 
         if not content:
             content = render_fallback_report(items, date_label)
+
+        content = self._fix_numbering(content)
 
         if mark_seen and items:
             await asyncio.to_thread(self._mark_seen_sync, data_dir, items)
