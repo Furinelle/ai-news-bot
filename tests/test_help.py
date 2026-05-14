@@ -14,6 +14,7 @@ class HelpTests(unittest.TestCase):
             "/news_subscribe 08:30",
             "/news_unsubscribe",
             "/news_schedule",
+            "/news_clear_cache",
         ):
             self.assertIn(command, help_text)
         self.assertIn("AI News Bot 指令", help_text)

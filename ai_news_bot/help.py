@@ -12,5 +12,6 @@ def build_news_help() -> str:
             "/news_subscribe 08:30 - 订阅当前会话的每日推送",
             "/news_unsubscribe - 取消当前会话的每日推送",
             "/news_schedule - 查看定时推送状态",
+            "/news_clear_cache - 清除已推送新闻缓存",
         ]
     )

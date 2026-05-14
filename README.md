@@ -46,6 +46,14 @@ https://github.com/Furinelle/ai-news-bot
 /news_help
 ```
 
+清除已推送新闻缓存：
+
+```
+/news_clear_cache
+```
+
+该指令只清除新闻去重记录，不会删除订阅会话、定时时间或新闻源配置。
+
 查看当前会话 ID，用于配置定时推送：
 
 ```

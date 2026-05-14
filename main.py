@@ -219,6 +219,11 @@ class AiNewsBotPlugin(Star):
     async def handle_news_help_cmd(self, event: AstrMessageEvent):
         yield event.plain_result(build_news_help())
 
+    @filter.command("news_clear_cache")
+    async def handle_news_clear_cache_cmd(self, event: AstrMessageEvent):
+        removed = await asyncio.to_thread(self._clear_seen_sync, self._ensure_data_dir())
+        yield event.plain_result(f"已清除新闻去重缓存，共 {removed} 条记录。")
+
     @filter.command("newsid")
     async def handle_newsid_cmd(self, event: AstrMessageEvent):
         yield event.plain_result(
@@ -436,6 +441,10 @@ class AiNewsBotPlugin(Star):
     def _mark_seen_sync(self, data_dir: Path, items: list[NewsItem]) -> None:
         with NewsStore(str(data_dir / "news_seen.sqlite3")) as store:
             store.mark_seen(items)
+
+    def _clear_seen_sync(self, data_dir: Path) -> int:
+        with NewsStore(str(data_dir / "news_seen.sqlite3")) as store:
+            return store.clear_seen()
 
     def _schedule_to_cron(self, schedule_time: str) -> str:
         match = re.fullmatch(r"(\d{1,2}):(\d{2})", schedule_time)

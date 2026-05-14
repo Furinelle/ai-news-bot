@@ -43,6 +43,11 @@ class NewsStore:
         )
         self.connection.commit()
 
+    def clear_seen(self) -> int:
+        cursor = self.connection.execute("DELETE FROM seen_urls")
+        self.connection.commit()
+        return int(cursor.rowcount or 0)
+
     def close(self) -> None:
         self.connection.close()
 
@@ -51,4 +56,3 @@ class NewsStore:
 
     def __exit__(self, *_args: object) -> None:
         self.close()
-
