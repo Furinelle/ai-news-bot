@@ -4,13 +4,13 @@ from ai_news_bot.pushplus import build_pushplus_payload
 
 
 class PushplusTests(unittest.TestCase):
-    def test_build_pushplus_payload_targets_clawbot_text_template(self):
+    def test_build_pushplus_payload_targets_clawbot_markdown_template(self):
         payload = build_pushplus_payload(
             token="secret",
             title="科技与AI日报",
             content="日报正文",
             channel="clawbot",
-            template="txt",
+            template="markdown",
         )
 
         self.assertEqual(
@@ -20,11 +20,10 @@ class PushplusTests(unittest.TestCase):
                 "title": "科技与AI日报",
                 "content": "日报正文",
                 "channel": "clawbot",
-                "template": "txt",
+                "template": "markdown",
             },
         )
 
 
 if __name__ == "__main__":
     unittest.main()
-

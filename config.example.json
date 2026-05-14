@@ -9,11 +9,11 @@
   "pushplus": {
     "token_env": "PUSHPLUS_TOKEN",
     "channel": "clawbot",
-    "template": "txt"
+    "template": "markdown"
   },
   "limits": {
     "max_items": 60,
-    "max_report_items": 18
+    "max_report_items": 30
   },
   "database_path": "data/news_history.sqlite3"
 }

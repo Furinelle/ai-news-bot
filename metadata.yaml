@@ -1,6 +1,6 @@
 name: astrbot_plugin_ai_news_bot
 display_name: AI科技日报
 desc: 每日自动抓取 RSS、Hacker News、GitHub Trending，用 LLM 生成结构化中文科技/AI日报，/news 命令按需推送。
-version: 1.4.1
+version: 1.4.3
 author: Furinelle
 repo: https://github.com/Furinelle/ai-news-bot

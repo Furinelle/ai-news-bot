@@ -24,13 +24,13 @@ class LlmConfig:
 class PushplusConfig:
     token: str
     channel: str = "clawbot"
-    template: str = "txt"
+    template: str = "markdown"
 
 
 @dataclass(frozen=True)
 class LimitsConfig:
     max_items: int = 30
-    max_report_items: int = 18
+    max_report_items: int = 30
 
 
 @dataclass(frozen=True)
@@ -74,12 +74,12 @@ def load_config(path: str | Path) -> AppConfig:
     pushplus = PushplusConfig(
         token=_required_env(str(push_raw.get("token_env", "PUSHPLUS_TOKEN"))),
         channel=str(push_raw.get("channel", "clawbot")),
-        template=str(push_raw.get("template", "txt")),
+        template=str(push_raw.get("template", "markdown")),
     )
 
     limits = LimitsConfig(
         max_items=int(limits_raw.get("max_items", 30)),
-        max_report_items=int(limits_raw.get("max_report_items", 18)),
+        max_report_items=int(limits_raw.get("max_report_items", 30)),
     )
 
     return AppConfig(

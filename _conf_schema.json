@@ -9,19 +9,19 @@
   "max_report_items": {
     "type": "int",
     "description": "送入 LLM 的最大候选条目数",
-    "hint": "建议 30，LLM 会从中选出科技热点 6~8 条、AI动态 6~8 条、GitHub Trending 10 条。",
+    "hint": "建议 30，LLM 会从中选出科技热点 6~8 条、AI动态 6~8 条、GitHub Trending 5 条。",
     "default": 30
   },
   "schedule_time": {
     "type": "string",
     "description": "每日推送时间",
-    "hint": "格式 HH:MM（上海时区）。留空则不启用定时推送。",
+    "hint": "格式 HH:MM（上海时区）。留空则不启用定时推送；也可以在微信里发送 /news_subscribe 08:30 设置。",
     "default": ""
   },
   "schedule_targets": {
     "type": "string",
     "description": "定时推送目标会话",
-    "hint": "每行一个 unified_msg_origin，群会话或私信会话均可。发送 /news 后在日志中查看当前会话 ID，填入此处。多个目标换行或逗号分隔。",
+    "hint": "每行一个 unified_msg_origin，群会话或私信会话均可。也可以直接在微信里发送 /news_subscribe 08:30 订阅当前会话；微信指令会优先于此后台配置。",
     "default": ""
   }
 }

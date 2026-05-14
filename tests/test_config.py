@@ -22,7 +22,7 @@ class ConfigTests(unittest.TestCase):
                         "pushplus": {
                             "token_env": "TEST_PUSHPLUS_TOKEN",
                             "channel": "clawbot",
-                            "template": "txt",
+                            "template": "markdown",
                         },
                         "limits": {"max_items": 12},
                     },
@@ -42,7 +42,7 @@ class ConfigTests(unittest.TestCase):
                 self.assertEqual(config.pushplus.token, "push-secret")
                 self.assertEqual(config.pushplus.channel, "clawbot")
                 self.assertEqual(config.limits.max_items, 12)
-                self.assertEqual(config.limits.max_report_items, 18)
+                self.assertEqual(config.limits.max_report_items, 30)
             finally:
                 os.environ.clear()
                 os.environ.update(old_env)

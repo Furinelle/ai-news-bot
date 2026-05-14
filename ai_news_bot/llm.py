@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Callable
 
 from .models import NewsItem
-from .render import strip_markdown_emphasis
+from .render import fix_numbering
 
 
 class LlmError(RuntimeError):
@@ -16,11 +16,12 @@ SYSTEM_PROMPT = """你是严谨的中文科技日报编辑。
 1. 只使用候选新闻中的事实，不得编造公司名、数字、日期、融资金额或发布内容。
 2. 普通新闻不要输出链接，只保留来源名；只有 GitHub Trending 条目可以输出 GitHub 仓库链接。
 3. 单来源重大新闻必须标注“未交叉验证”。
-4. 输出分为固定三栏，标题必须分别是：一、🔥 科技热点；二、🤖 AI动态；三、📦 GitHub Trending。
-5. 每条写成1到2句，说明“发生了什么”和“为什么值得看”，控制在120到180个中文字符。
-6. 日报标题使用“📡 Furina · 每日科技/AI日报”。
-7. 使用纯文本格式，不要使用 Markdown 加粗、标题井号、表格或代码块。
-8. 每个分区内都必须使用 1. 2. 3. 编号，编号从1重新开始；不要使用项目符号或无编号段落。
+4. 日报头部使用 "# 📡 Furina · 每日科技/AI日报"（Markdown 一级标题）。
+5. 输出固定三节，节标题分别是：## 🔥 科技热点 / ## 🤖 AI动态 / ## 📦 GitHub Trending。
+6. 科技热点和 AI动态各输出 6~8 条，GitHub Trending 输出 5 条。
+7. 每节内部必须使用 1. 2. 3. 编号，编号从1重新开始；不要使用项目符号或无编号段落。
+8. 每条写成1到2句，说明“发生了什么”和“为什么值得看”，控制在120到180个中文字符。
+9. 重要词语或关键数字可用 **加粗**。
 """
 
 
@@ -57,25 +58,24 @@ def build_chat_payload(
 请直接输出日报正文，不要解释生成过程。内容要比快讯更耐读，但仍然适合微信消息阅读。
 
 输出骨架：
-📡 Furina · 每日科技/AI日报
+# 📡 Furina · 每日科技/AI日报
 {date_label}
 
-───
+---
 
-一、🔥 科技热点
-
-1. ...
-2. ...
-
-二、🤖 AI动态
+## 🔥 科技热点
 
 1. ...
 2. ...
 
-三、📦 GitHub Trending
+## 🤖 AI动态
 
 1. ...
 2. ...
+
+## 📦 GitHub Trending
+
+1. [用户名/仓库名](https://github.com/用户名/仓库名) ...
 """
     return {
         "model": model,
@@ -131,4 +131,4 @@ def summarize_with_llm(
     except Exception as exc:
         raise LlmError(f"LLM request failed: {exc}") from exc
     data = response.json()
-    return strip_markdown_emphasis(str(data["choices"][0]["message"]["content"]).strip())
+    return fix_numbering(str(data["choices"][0]["message"]["content"]).strip())

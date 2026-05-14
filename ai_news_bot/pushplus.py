@@ -11,7 +11,7 @@ def build_pushplus_payload(
     title: str,
     content: str,
     channel: str = "clawbot",
-    template: str = "txt",
+    template: str = "markdown",
 ) -> dict[str, str]:
     return {
         "token": token,
@@ -27,7 +27,7 @@ def send_pushplus(
     title: str,
     content: str,
     channel: str = "clawbot",
-    template: str = "txt",
+    template: str = "markdown",
     post: Callable[..., Any] | None = None,
 ) -> dict[str, Any]:
     payload = build_pushplus_payload(
@@ -48,4 +48,3 @@ def send_pushplus(
 
     response.raise_for_status()
     return response.json()
-

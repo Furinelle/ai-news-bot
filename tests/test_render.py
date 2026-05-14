@@ -1,7 +1,7 @@
 import unittest
 
 from ai_news_bot.models import NewsItem
-from ai_news_bot.render import render_fallback_report, strip_markdown_emphasis
+from ai_news_bot.render import fix_numbering, render_fallback_report, strip_markdown_emphasis
 
 
 class RenderTests(unittest.TestCase):
@@ -24,18 +24,44 @@ class RenderTests(unittest.TestCase):
             date_label="2026年5月9日",
         )
 
-        self.assertIn("📡 Furina · 每日科技/AI日报", report)
+        self.assertIn("# 📡 Furina · 每日科技/AI日报", report)
         self.assertIn("2026年5月9日", report)
-        self.assertIn("二、🤖 AI动态", report)
-        self.assertIn("三、📦 GitHub Trending", report)
-        self.assertIn("来源：Example", report)
+        self.assertIn("## 🤖 AI动态", report)
+        self.assertIn("## 📦 GitHub Trending", report)
+        self.assertIn("1. OpenAI releases a realtime model", report)
+        self.assertIn("（来源：Example）", report)
         self.assertNotIn("https://example.com/openai", report)
-        self.assertIn("https://github.com/example/repo", report)
+        self.assertIn("[A repository is trending](https://github.com/example/repo)", report)
+        self.assertIn("---\n由 AI News Bot 自动生成", report)
+        self.assertNotIn("2. 由 AI News Bot 自动生成", report)
 
     def test_strip_markdown_emphasis_removes_bold_markers(self):
         text = strip_markdown_emphasis("**重点** 和 __项目__")
 
         self.assertEqual(text, "重点 和 项目")
+
+    def test_fix_numbering_normalizes_unnumbered_and_bulleted_section_items(self):
+        report = "\n".join(
+            [
+                "# 📡 Furina · 每日科技/AI日报",
+                "2026年5月9日",
+                "",
+                "## 🔥 科技热点",
+                "The first item",
+                "- The second item",
+                "3、The third item",
+                "",
+                "## 📦 GitHub Trending",
+                "[example/repo](https://github.com/example/repo) Repository summary",
+            ]
+        )
+
+        fixed = fix_numbering(report)
+
+        self.assertIn("1. The first item", fixed)
+        self.assertIn("2. The second item", fixed)
+        self.assertIn("3. The third item", fixed)
+        self.assertIn("1. [example/repo](https://github.com/example/repo) Repository summary", fixed)
 
 
 if __name__ == "__main__":

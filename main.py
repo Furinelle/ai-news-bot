@@ -18,10 +18,19 @@ from .ai_news_bot.fetch_rss import fetch_rss_feed
 from .ai_news_bot.fetch_hn import fetch_hacker_news
 from .ai_news_bot.fetch_github import fetch_github_trending
 from .ai_news_bot.dedupe import dedupe_items
-from .ai_news_bot.rank import rank_items
-from .ai_news_bot.render import render_fallback_report
+from .ai_news_bot.rank import select_report_items
+from .ai_news_bot.render import fix_numbering, render_fallback_report
+from .ai_news_bot.schedule import (
+    add_subscription,
+    normalize_schedule_time,
+    remove_subscription,
+    resolve_schedule_settings,
+)
 from .ai_news_bot.storage import NewsStore
 from .ai_news_bot.models import NewsItem
+
+
+SCHEDULE_KV_KEY = "schedule_settings"
 
 
 SYSTEM_PROMPT = """你是严谨的中文科技日报编辑。
@@ -106,32 +115,6 @@ def _build_user_prompt(items: list[NewsItem], date_label: str) -> str:
 """
 
 
-def _is_item_line(line: str) -> bool:
-    if not line.strip():
-        return False
-    if line.startswith('#'):
-        return False
-    if re.match(r'^[-─=*]{3,}$', line.strip()):
-        return False
-    if line[0] in (' ', '\t'):
-        return False
-    if line.strip().startswith('（'):
-        return False
-    if re.match(r'^\d{4}年', line):
-        return False
-    return True
-
-
-def _strip_item_prefix(line: str) -> str:
-    m = re.match(r'^\d+\.\s+(.*)', line, re.DOTALL)
-    if m:
-        return m.group(1)
-    m = re.match(r'^[-•]\s+(.*)', line, re.DOTALL)
-    if m:
-        return m.group(1)
-    return line
-
-
 @register(
     "astrbot_plugin_ai_news_bot",
     "Furinelle",
@@ -151,23 +134,49 @@ class AiNewsBotPlugin(Star):
     async def initialize(self):
         self._data_dir = StarTools.get_data_dir("astrbot_plugin_ai_news_bot")
         self._data_dir.mkdir(parents=True, exist_ok=True)
+        await self._register_daily_job()
 
-        schedule_time = str(self._conf("schedule_time", "") or "").strip()
-        if not schedule_time:
-            return
+    async def _get_saved_schedule_state(self) -> dict[str, Any] | None:
+        state = await self.get_kv_data(SCHEDULE_KV_KEY, None)
+        return state if isinstance(state, dict) else None
+
+    async def _save_schedule_state(self, state: dict[str, Any]) -> None:
+        await self.put_kv_data(SCHEDULE_KV_KEY, state)
+
+    async def _resolve_schedule_settings(self):
+        return resolve_schedule_settings(
+            config_time=str(self._conf("schedule_time", "") or ""),
+            config_targets=str(self._conf("schedule_targets", "") or ""),
+            saved_state=await self._get_saved_schedule_state(),
+        )
+
+    async def _register_daily_job(self):
         cron_manager = getattr(self.context, "cron_manager", None)
         if cron_manager is None:
+            logger.error("[AI News Bot] AstrBot context 中没有 cron_manager，无法注册定时任务")
             return
         try:
+            await self._delete_existing_daily_jobs(cron_manager)
+            settings = await self._resolve_schedule_settings()
+            if not settings.schedule_time:
+                logger.info("[AI News Bot] 未配置 schedule_time，定时推送未启用")
+                return
+            if not settings.targets:
+                logger.warning("[AI News Bot] 未配置定时推送目标，定时推送未启用")
+                return
             job = await cron_manager.add_basic_job(
                 name=self._cron_job_name,
-                cron_expression=self._schedule_to_cron(schedule_time),
+                cron_expression=self._schedule_to_cron(settings.schedule_time),
                 handler=self._daily_push,
                 description="AI科技日报每日定时推送",
                 timezone="Asia/Shanghai",
                 persistent=False,
             )
             self._cron_job_id = job.job_id
+            logger.info(
+                f"[AI News Bot] 已注册每日定时推送：{settings.schedule_time} Asia/Shanghai，"
+                f"目标 {len(settings.targets)} 个（来源：{settings.source}）"
+            )
         except Exception as e:
             logger.error(f"[AI News Bot] 注册定时任务失败：{e}")
 
@@ -175,39 +184,18 @@ class AiNewsBotPlugin(Star):
         cron_manager = getattr(self.context, "cron_manager", None)
         if cron_manager is None:
             return
+        await self._delete_existing_daily_jobs(cron_manager)
+
+    async def _delete_existing_daily_jobs(self, cron_manager: Any):
         if self._cron_job_id:
             await cron_manager.delete_job(self._cron_job_id)
             self._cron_job_id = None
-            return
         for job in await cron_manager.list_jobs("basic"):
             if getattr(job, "name", None) == self._cron_job_name:
                 await cron_manager.delete_job(job.job_id)
 
     def _fix_numbering(self, report: str) -> str:
-        """强制为 LLM 每节条目编号（适配无标记、- 符号、已有序号三种格式）。"""
-        chunks = re.split(r'(\n##\s[^\n]+)', report)
-        result = []
-        in_section = False
-        for chunk in chunks:
-            if chunk.startswith('\n##'):
-                in_section = True
-                result.append(chunk)
-                continue
-            if not in_section:
-                result.append(chunk)
-                continue
-            lines = chunk.split('\n')
-            counter = 0
-            new_lines = []
-            for line in lines:
-                if _is_item_line(line):
-                    counter += 1
-                    content = _strip_item_prefix(line)
-                    new_lines.append(f"{counter}. {content}")
-                else:
-                    new_lines.append(line)
-            result.append('\n'.join(new_lines))
-        return ''.join(result)
+        return fix_numbering(report)
 
     def _split_sections(self, report: str) -> list[str]:
         import re
@@ -217,6 +205,7 @@ class AiNewsBotPlugin(Star):
 
     @filter.command("news")
     async def handle_news_cmd(self, event: AstrMessageEvent):
+        logger.info(f"[AI News Bot] 当前会话 unified_msg_origin：{event.unified_msg_origin}")
         yield event.plain_result("正在生成今日科技/AI日报，请稍等。")
         try:
             result = await self._run_report(mark_seen=True)
@@ -225,13 +214,76 @@ class AiNewsBotPlugin(Star):
         for section in self._split_sections(result):
             yield event.plain_result(section)
 
+    @filter.command("newsid")
+    async def handle_newsid_cmd(self, event: AstrMessageEvent):
+        yield event.plain_result(
+            f"当前会话 ID：{event.unified_msg_origin}\n"
+            "把它填入插件配置 schedule_targets，可用于每日定时推送。"
+        )
+
+    @filter.command("news_subscribe")
+    async def handle_news_subscribe_cmd(self, event: AstrMessageEvent, schedule_time: str = ""):
+        try:
+            if schedule_time:
+                target_time = normalize_schedule_time(schedule_time)
+            else:
+                settings = await self._resolve_schedule_settings()
+                target_time = settings.schedule_time
+            if not target_time:
+                yield event.plain_result("请指定推送时间，例如：/news_subscribe 08:30")
+                return
+            state = add_subscription(
+                saved_state=await self._get_saved_schedule_state(),
+                config_targets=str(self._conf("schedule_targets", "") or ""),
+                target=event.unified_msg_origin,
+                schedule_time=target_time,
+            )
+            await self._save_schedule_state(state)
+            await self._register_daily_job()
+            yield event.plain_result(f"已订阅当前会话，每天 {state['schedule_time']} 推送科技/AI日报。")
+        except ValueError as exc:
+            yield event.plain_result(f"订阅失败：{exc}")
+
+    @filter.command("news_unsubscribe")
+    async def handle_news_unsubscribe_cmd(self, event: AstrMessageEvent):
+        state = remove_subscription(
+            saved_state=await self._get_saved_schedule_state(),
+            config_targets=str(self._conf("schedule_targets", "") or ""),
+            target=event.unified_msg_origin,
+        )
+        await self._save_schedule_state(state)
+        await self._register_daily_job()
+        yield event.plain_result("已取消当前会话的每日推送。")
+
+    @filter.command("news_schedule")
+    async def handle_news_schedule_cmd(self, event: AstrMessageEvent):
+        settings = await self._resolve_schedule_settings()
+        current_enabled = event.unified_msg_origin in settings.targets
+        if not settings.schedule_time:
+            yield event.plain_result("每日推送未启用。使用 /news_subscribe 08:30 可订阅当前会话。")
+            return
+        yield event.plain_result(
+            f"每日推送时间：{settings.schedule_time}\n"
+            f"订阅会话数：{len(settings.targets)}\n"
+            f"当前会话：{'已订阅' if current_enabled else '未订阅'}"
+        )
+
     async def _run_report(self, mark_seen: bool = True) -> str:
         data_dir = self._ensure_data_dir()
         sources = await asyncio.to_thread(self._load_sources_sync)
-        max_items = int(self._conf("max_report_items", 18) or 18)
+        max_items = int(self._conf("max_report_items", 30) or 30)
 
-        items = await asyncio.to_thread(self._collect_items_sync, sources, max_items)
-        items = await asyncio.to_thread(self._filter_seen_sync, data_dir, items)
+        candidates = await asyncio.to_thread(self._collect_items_sync, sources, max_items)
+        new_items = await asyncio.to_thread(self._filter_seen_sync, data_dir, candidates)
+        items = select_report_items(new_items, max_items)
+        minimum_report_items = min(max_items, 17)
+        if len(items) < minimum_report_items:
+            selected_urls = {item.url for item in items}
+            top_up_items = [item for item in candidates if item.url not in selected_urls]
+            items = select_report_items(items + top_up_items, max_items)
+            logger.info(
+                f"[AI News Bot] 新内容不足 {minimum_report_items} 条，已使用候选池补齐至 {len(items)} 条"
+            )
 
         date_label = self._date_label()
         provider_id = str(self._conf("provider_id", "") or "").strip()
@@ -268,15 +320,17 @@ class AiNewsBotPlugin(Star):
         except Exception as e:
             logger.error(f"[AI News Bot] 定时生成日报失败：{e}")
             return
-        raw = str(self._conf("schedule_targets", "") or "")
-        targets = [t.strip() for t in re.split(r"[\n,]+", raw) if t.strip()]
+        settings = await self._resolve_schedule_settings()
+        targets = settings.targets
         if not targets:
-            logger.warning("[AI News Bot] 未配置 schedule_targets，跳过定时推送")
+            logger.warning("[AI News Bot] 未配置定时推送目标，跳过定时推送")
             return
         for session_id in targets:
             for section in self._split_sections(content):
                 try:
-                    await self.context.send_message(session_id, MessageChain().message(section))
+                    sent = await self.context.send_message(session_id, MessageChain().message(section))
+                    if not sent:
+                        logger.error(f"[AI News Bot] 未找到定时推送目标会话：{session_id}")
                 except Exception as e:
                     logger.error(f"[AI News Bot] 推送到 {session_id} 失败：{e}")
 
@@ -348,7 +402,7 @@ class AiNewsBotPlugin(Star):
                     )
                 )
 
-        return rank_items(dedupe_items(items), max_items)
+        return dedupe_items(items)
 
     def _filter_seen_sync(
         self,
