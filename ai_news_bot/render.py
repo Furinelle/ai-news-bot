@@ -54,6 +54,22 @@ def _strip_item_prefix(line: str) -> str:
     return stripped
 
 
+def _canonical_section_heading(line: str) -> str | None:
+    stripped = line.strip()
+    stripped = re.sub(r"^#+\s*", "", stripped)
+    stripped = re.sub(r"^(一|二|三|[0-9]+)[、.)]\s*", "", stripped)
+    stripped = stripped.replace("🔥", "").replace("🤖", "").replace("📦", "").strip()
+    stripped = stripped.rstrip(":：").strip()
+    normalized = re.sub(r"\s+", " ", stripped).casefold()
+    if normalized == "科技热点":
+        return SECTION_HEADINGS["科技热点"]
+    if normalized in {"ai动态", "ai 动态"}:
+        return SECTION_HEADINGS["AI动态"]
+    if normalized == "github trending":
+        return SECTION_HEADINGS["GitHub Trending"]
+    return None
+
+
 def fix_numbering(report: str) -> str:
     """Normalize section items to Markdown ordered lists."""
     result: list[str] = []
@@ -65,10 +81,11 @@ def fix_numbering(report: str) -> str:
             in_section = False
             result.append(line)
             continue
-        if re.match(r"^##\s+", line.strip()):
+        section_heading = _canonical_section_heading(line)
+        if section_heading:
             in_section = True
             counter = 0
-            result.append(line)
+            result.append(section_heading)
             continue
         if in_section and _is_item_line(line):
             counter += 1

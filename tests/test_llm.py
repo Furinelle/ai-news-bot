@@ -34,6 +34,7 @@ class LlmTests(unittest.TestCase):
         self.assertIn("## 🔥 科技热点", joined)
         self.assertIn("## 🤖 AI动态", joined)
         self.assertIn("## 📦 GitHub Trending", joined)
+        self.assertIn("GitHub Trending 输出 10 条", joined)
         self.assertIn("普通新闻不要输出链接", joined)
         self.assertIn("Markdown 一级标题", joined)
         self.assertIn("https://example.com/chip", joined)

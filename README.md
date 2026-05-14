@@ -7,7 +7,7 @@
 - `/news` 命令：即时生成并分段发送当日科技/AI日报
 - 多源采集：TechCrunch AI、The Verge、Ars Technica、MIT Technology Review、VentureBeat AI、Wired、OpenAI Blog、Google AI Blog、GitHub Blog、Hacker News、GitHub Trending
 - URL 和标题去重，SQLite 记录已推送链接，减少重复内容
-- LLM 生成中文摘要，格式固定：科技热点 6~8 条、AI动态 6~8 条、GitHub Trending 5 条（含仓库链接）
+- LLM 生成中文摘要，格式固定：科技热点 6~8 条、AI动态 6~8 条、GitHub Trending 10 条（含仓库链接）
 - 每条附来源媒体名，GitHub Trending 附仓库链接
 - 无 LLM 时自动回退为 Markdown 原文模式
 

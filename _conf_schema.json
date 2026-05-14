@@ -9,7 +9,7 @@
   "max_report_items": {
     "type": "int",
     "description": "送入 LLM 的最大候选条目数",
-    "hint": "建议 30，LLM 会从中选出科技热点 6~8 条、AI动态 6~8 条、GitHub Trending 5 条。",
+    "hint": "建议 30，LLM 会从中选出科技热点 6~8 条、AI动态 6~8 条、GitHub Trending 10 条。",
     "default": 30
   },
   "schedule_time": {

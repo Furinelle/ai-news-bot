@@ -63,6 +63,72 @@ class RenderTests(unittest.TestCase):
         self.assertIn("3. The third item", fixed)
         self.assertIn("1. [example/repo](https://github.com/example/repo) Repository summary", fixed)
 
+    def test_fix_numbering_restarts_numbering_for_each_section(self):
+        report = "\n".join(
+            [
+                "# 📡 Furina · 每日科技/AI日报",
+                "",
+                "## 🔥 科技热点",
+                "Tech one",
+                "Tech two",
+                "",
+                "## 🤖 AI动态",
+                "AI one",
+                "AI two",
+                "",
+                "## 📦 GitHub Trending",
+                "Repo one",
+                "Repo two",
+            ]
+        )
+
+        fixed = fix_numbering(report)
+
+        self.assertIn("## 🔥 科技热点\n1. Tech one\n2. Tech two", fixed)
+        self.assertIn("## 🤖 AI动态\n1. AI one\n2. AI two", fixed)
+        self.assertIn("## 📦 GitHub Trending\n1. Repo one\n2. Repo two", fixed)
+
+    def test_fix_numbering_normalizes_plain_section_headings(self):
+        report = "\n".join(
+            [
+                "# 📡 Furina · 每日科技/AI日报",
+                "",
+                "科技热点",
+                "Tech one",
+                "Tech two",
+                "",
+                "AI动态",
+                "- AI one",
+                "- AI two",
+                "",
+                "GitHub Trending",
+                "Repo one",
+                "Repo two",
+            ]
+        )
+
+        fixed = fix_numbering(report)
+
+        self.assertIn("## 🔥 科技热点\n1. Tech one\n2. Tech two", fixed)
+        self.assertIn("## 🤖 AI动态\n1. AI one\n2. AI two", fixed)
+        self.assertIn("## 📦 GitHub Trending\n1. Repo one\n2. Repo two", fixed)
+
+    def test_render_fallback_report_keeps_ten_github_trending_items(self):
+        report = render_fallback_report(
+            [
+                NewsItem(
+                    title=f"Repo {index}",
+                    url=f"https://github.com/example/repo-{index}",
+                    source="GitHub Trending",
+                    category="GitHub Trending",
+                )
+                for index in range(1, 11)
+            ],
+            date_label="2026年5月14日",
+        )
+
+        self.assertIn("10. [Repo 10](https://github.com/example/repo-10)", report)
+
 
 if __name__ == "__main__":
     unittest.main()
