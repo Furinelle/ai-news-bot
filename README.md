@@ -40,6 +40,12 @@ https://github.com/Furinelle/ai-news-bot
 
 插件会先回复"生成中"提示，随后将日报按三节（科技热点 / AI动态 / GitHub Trending）分段发送。
 
+查看指令列表：
+
+```
+/news_help
+```
+
 查看当前会话 ID，用于配置定时推送：
 
 ```

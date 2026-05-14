@@ -18,6 +18,7 @@ from .ai_news_bot.fetch_rss import fetch_rss_feed
 from .ai_news_bot.fetch_hn import fetch_hacker_news
 from .ai_news_bot.fetch_github import fetch_github_trending
 from .ai_news_bot.dedupe import dedupe_items
+from .ai_news_bot.help import build_news_help
 from .ai_news_bot.rank import select_report_items
 from .ai_news_bot.render import fix_numbering, render_fallback_report
 from .ai_news_bot.schedule import (
@@ -213,6 +214,10 @@ class AiNewsBotPlugin(Star):
             result = f"日报生成失败：{exc}"
         for section in self._split_sections(result):
             yield event.plain_result(section)
+
+    @filter.command("news_help")
+    async def handle_news_help_cmd(self, event: AstrMessageEvent):
+        yield event.plain_result(build_news_help())
 
     @filter.command("newsid")
     async def handle_newsid_cmd(self, event: AstrMessageEvent):
