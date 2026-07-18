@@ -1,11 +1,11 @@
 import unittest
 
 from ai_news_bot.models import NewsItem
-from ai_news_bot.render import fix_numbering, render_fallback_report, strip_markdown_emphasis
+from ai_news_bot.render import fix_numbering, render_fallback_report, render_html_report, strip_markdown_emphasis
 
 
 class RenderTests(unittest.TestCase):
-    def test_render_fallback_report_only_keeps_github_trending_links(self):
+    def test_render_fallback_report_links_sources_but_not_plain_news_titles(self):
         report = render_fallback_report(
             [
                 NewsItem(
@@ -29,11 +29,21 @@ class RenderTests(unittest.TestCase):
         self.assertIn("## 🤖 AI动态", report)
         self.assertIn("## 📦 GitHub Trending", report)
         self.assertIn("1. OpenAI releases a realtime model", report)
-        self.assertIn("（来源：Example）", report)
-        self.assertNotIn("https://example.com/openai", report)
+        self.assertIn("（来源：[Example](https://example.com/openai)）", report)
+        self.assertNotIn("[OpenAI releases a realtime model](https://example.com/openai)", report)
         self.assertIn("[A repository is trending](https://github.com/example/repo)", report)
         self.assertIn("---\n由 AI News Bot 自动生成", report)
         self.assertNotIn("2. 由 AI News Bot 自动生成", report)
+
+        html = render_html_report(report)
+        self.assertIn('<a href="https://example.com/openai" rel="noopener noreferrer">Example</a>', html)
+        self.assertIn('role="tablist"', html)
+        self.assertIn('role="tab"', html)
+        self.assertIn('role="tabpanel"', html)
+        self.assertIn('id="section-0"', html)
+        self.assertIn('id="section-1"', html)
+        self.assertIn('class="tab-button is-active"', html)
+        self.assertIn('hidden><h2>📦 GitHub Trending</h2>', html)
 
     def test_strip_markdown_emphasis_removes_bold_markers(self):
         text = strip_markdown_emphasis("**重点** 和 __项目__")

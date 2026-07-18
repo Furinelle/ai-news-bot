@@ -24,6 +24,19 @@ class ConfigTests(unittest.TestCase):
                             "channel": "clawbot",
                             "template": "markdown",
                         },
+                        "telegram": {
+                            "enabled": True,
+                            "bot_token_env": "TEST_TELEGRAM_BOT_TOKEN",
+                            "chat_id": "@FurinadeHub",
+                        },
+                        "blog": {
+                            "enabled": True,
+                            "base_url": "https://blog.example.com/",
+                            "username_env": "TEST_BLOG_USERNAME",
+                            "password_env": "TEST_BLOG_PASSWORD",
+                            "title_prefix": "每日新闻",
+                            "tags": ["日报", "AI"],
+                        },
                         "limits": {"max_items": 12},
                     },
                     handle,
@@ -33,6 +46,9 @@ class ConfigTests(unittest.TestCase):
             try:
                 os.environ["TEST_LLM_KEY"] = "llm-secret"
                 os.environ["TEST_PUSHPLUS_TOKEN"] = "push-secret"
+                os.environ["TEST_TELEGRAM_BOT_TOKEN"] = "telegram-secret"
+                os.environ["TEST_BLOG_USERNAME"] = "furina"
+                os.environ["TEST_BLOG_PASSWORD"] = "blog-secret"
 
                 config = load_config(config_path)
 
@@ -41,8 +57,17 @@ class ConfigTests(unittest.TestCase):
                 self.assertEqual(config.llm.timeout_seconds, 240)
                 self.assertEqual(config.pushplus.token, "push-secret")
                 self.assertEqual(config.pushplus.channel, "clawbot")
+                self.assertTrue(config.telegram.enabled)
+                self.assertEqual(config.telegram.bot_token, "telegram-secret")
+                self.assertEqual(config.telegram.chat_id, "@FurinadeHub")
+                self.assertTrue(config.blog.enabled)
+                self.assertEqual(config.blog.base_url, "https://blog.example.com")
+                self.assertEqual(config.blog.username, "furina")
+                self.assertEqual(config.blog.password, "blog-secret")
+                self.assertEqual(config.blog.title_prefix, "每日新闻")
+                self.assertEqual(config.blog.tags, ("日报", "AI"))
                 self.assertEqual(config.limits.max_items, 12)
-                self.assertEqual(config.limits.max_report_items, 30)
+                self.assertEqual(config.limits.max_report_items, 45)
             finally:
                 os.environ.clear()
                 os.environ.update(old_env)

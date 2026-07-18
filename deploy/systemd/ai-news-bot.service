@@ -7,5 +7,7 @@ After=network-online.target
 Type=oneshot
 WorkingDirectory=/opt/ai-news-bot
 EnvironmentFile=/etc/ai-news-bot.env
-ExecStart=/opt/ai-news-bot/.venv/bin/python -m ai_news_bot.main --config config.json --sources sources.json --send --out reports/daily.txt
-
+ExecStart=/opt/ai-news-bot/.venv/bin/python -m ai_news_bot.main --config config.json --sources sources.json --send
+StateDirectory=ai-news-bot
+NoNewPrivileges=yes
+PrivateTmp=yes

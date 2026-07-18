@@ -25,10 +25,48 @@
       "limit": 20
     },
     {
+      "name": "Google DeepMind",
+      "url": "https://blog.google/innovation-and-ai/models-and-research/google-deepmind/rss/",
+      "category": "AI动态",
+      "limit": 10
+    },
+    {
       "name": "GitHub Blog",
       "url": "https://github.blog/feed/",
       "category": "科技热点",
       "limit": 20
+    },
+    {
+      "name": "AWS Machine Learning Blog",
+      "url": "https://aws.amazon.com/blogs/machine-learning/feed/",
+      "category": "AI动态",
+      "limit": 10
+    },
+    {
+      "name": "NVIDIA Developer Blog",
+      "url": "https://developer.nvidia.com/blog/feed/",
+      "category": "科技热点",
+      "limit": 10
+    },
+    {
+      "name": "TensorFeed AI",
+      "url": "https://tensorfeed.ai/feed.xml",
+      "category": "AI动态",
+      "limit": 10
+    }
+  ],
+  "json_apis": [
+    {
+      "name": "Spaceflight News",
+      "url": "https://api.spaceflightnewsapi.net/v4/articles/?limit=8",
+      "category": "科技热点",
+      "items_path": "results",
+      "title_fields": ["title"],
+      "url_fields": ["url"],
+      "summary_fields": ["summary"],
+      "published_fields": ["published_at"],
+      "source_fields": ["news_site"],
+      "limit": 8
     }
   ],
   "hacker_news": {
@@ -38,7 +76,8 @@
   "github_trending": {
     "enabled": true,
     "since": "daily",
-    "limit": 10,
-    "languages": ["", "python", "javascript"]
+    "extra_since": ["weekly", "monthly"],
+    "limit": 50,
+    "languages": [""]
   }
 }

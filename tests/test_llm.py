@@ -34,12 +34,31 @@ class LlmTests(unittest.TestCase):
         self.assertIn("## 🔥 科技热点", joined)
         self.assertIn("## 🤖 AI动态", joined)
         self.assertIn("## 📦 GitHub Trending", joined)
-        self.assertIn("GitHub Trending 输出 10 条", joined)
-        self.assertIn("普通新闻不要输出链接", joined)
+        self.assertIn("每个部分最多输出 15 条", joined)
+        self.assertIn("科技热点最多 15 条、AI动态最多 15 条、GitHub Trending最多 15 条", joined)
+        self.assertIn("候选不足时可以少于 15 条", joined)
+        self.assertIn("绝不能用 Hacker News", joined)
+        self.assertIn("普通新闻不要输出裸链接", joined)
+        self.assertIn("每条必须在末尾保留可点击来源名", joined)
+        self.assertIn("科技热点和 AI动态每一条都必须包含“来源：”", joined)
+        self.assertIn("原文链接必须来自候选新闻的“链接”字段", joined)
+        self.assertIn("（来源：[来源名](https://example.com/original-article)）", joined)
         self.assertIn("Markdown 一级标题", joined)
         self.assertIn("https://example.com/chip", joined)
         self.assertIn("科技热点", joined)
         self.assertIn("GitHub Trending", joined)
+
+    def test_build_chat_payload_can_enable_thinking_mode(self):
+        payload = build_chat_payload(
+            model="deepseek-v4-flash",
+            date_label="2026年6月26日",
+            items=[],
+            thinking_enabled=True,
+            reasoning_effort="high",
+        )
+
+        self.assertEqual(payload["thinking"], {"type": "enabled"})
+        self.assertEqual(payload["reasoning_effort"], "high")
 
     def test_summarize_with_llm_uses_configurable_timeout_and_wraps_timeout_errors(self):
         calls = []

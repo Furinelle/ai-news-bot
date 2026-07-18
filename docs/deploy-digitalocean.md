@@ -78,13 +78,26 @@ For DeepSeek, a practical starting point is:
 {
   "llm": {
     "base_url": "https://api.deepseek.com",
-    "model": "deepseek-chat",
-    "timeout_seconds": 240
+    "model": "deepseek-v4-flash",
+    "timeout_seconds": 240,
+    "thinking_enabled": true,
+    "reasoning_effort": "high"
   }
 }
 ```
 
 If a longer report times out, increase `timeout_seconds` to `300`, or reduce `limits.max_report_items` to `12`.
+
+When `r2.public_base_url` is empty, the notification uses a private R2 presigned URL for the HTML report. The default link lifetime is 7 days:
+
+```json
+{
+  "r2": {
+    "public_base_url": "",
+    "presigned_url_expires_seconds": 604800
+  }
+}
+```
 
 ## 6. Store secrets outside the repository
 
@@ -96,7 +109,10 @@ Example:
 
 ```env
 LLM_API_KEY=replace-with-your-llm-api-key
-PUSHPLUS_TOKEN=replace-with-your-pushplus-token
+SCRIPTING_PUSH_API_KEY=replace-with-your-scripting-remote-push-key
+CLOUDFLARE_ACCOUNT_ID=replace-with-your-cloudflare-account-id
+R2_ACCESS_KEY_ID=replace-with-your-r2-access-key-id
+R2_SECRET_ACCESS_KEY=replace-with-your-r2-secret-access-key
 ```
 
 Lock down the secret file:
@@ -125,15 +141,13 @@ This fallback mode keeps original source titles, so English sources may remain E
 python -m ai_news_bot.main --config config.json --sources sources.json --dry-run
 ```
 
-## 9. Test pushplus ClawBot delivery
-
-Before this step, bind ClawBot in pushplus and send a message to the bot once from WeChat.
+## 9. Test Scripting Remote Push and R2 upload
 
 ```bash
 python -m ai_news_bot.main --config config.json --sources sources.json --send
 ```
 
-If WeChat receives the report, continue to systemd.
+If your iPhone receives the notification, opens the HTML report, and the R2 objects appear in the bucket, continue to systemd.
 
 ## 10. Install systemd service and timer
 
@@ -171,5 +185,5 @@ systemctl restart ai-news-bot.timer
 ## Notes
 
 - `config.json`, `sources.json`, `data/`, and `reports/` stay local on the VPS.
-- Do not commit real API keys or pushplus tokens.
-- If pushplus ClawBot stops delivering, open WeChat and send a message to ClawBot again, then retry.
+- Do not commit real API keys, Scripting Remote Push keys, or R2 credentials.
+- R2 uses Cloudflare's S3-compatible endpoint: `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`.

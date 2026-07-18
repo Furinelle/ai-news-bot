@@ -1,5 +1,5 @@
 [Unit]
-Description=Run AI News Bot every morning
+Description=Run AI News Bot daily
 
 [Timer]
 OnCalendar=*-*-* 08:00:00
@@ -8,4 +8,3 @@ Unit=ai-news-bot.service
 
 [Install]
 WantedBy=timers.target
-

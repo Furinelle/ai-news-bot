@@ -2,18 +2,56 @@
   "llm": {
     "base_url": "https://api.openai.com/v1",
     "api_key_env": "LLM_API_KEY",
-    "model": "gpt-4.1-mini",
+    "model": "deepseek-v4-flash",
     "temperature": 0.2,
-    "timeout_seconds": 180
+    "timeout_seconds": 240,
+    "thinking_enabled": true,
+    "reasoning_effort": "high"
   },
   "pushplus": {
     "token_env": "PUSHPLUS_TOKEN",
     "channel": "clawbot",
     "template": "markdown"
   },
+  "scripting_push": {
+    "enabled": true,
+    "api_key_env": "SCRIPTING_PUSH_API_KEY",
+    "endpoint": "https://push.scripting.fun/push",
+    "title": "Furina · 每日科技/AI日报"
+  },
+  "telegram": {
+    "enabled": true,
+    "bot_token_env": "TELEGRAM_BOT_TOKEN",
+    "chat_id": "@FurinadeHub",
+    "endpoint_base": "https://api.telegram.org",
+    "disable_web_page_preview": false
+  },
+  "blog": {
+    "enabled": true,
+    "base_url": "https://blog.example.com",
+    "username_env": "BLOG_ADMIN_USERNAME",
+    "password_env": "BLOG_ADMIN_PASSWORD",
+    "title_prefix": "每日科技 / AI 日报",
+    "tags": ["每日新闻", "AI", "科技"]
+  },
+  "r2": {
+    "enabled": true,
+    "bucket": "furina-ai-news",
+    "account_id_env": "CLOUDFLARE_ACCOUNT_ID",
+    "access_key_id_env": "R2_ACCESS_KEY_ID",
+    "secret_access_key_env": "R2_SECRET_ACCESS_KEY",
+    "key_prefix": "daily",
+    "public_base_url": "https://example.com",
+    "presigned_url_expires_seconds": 604800,
+    "content_type": "text/markdown; charset=utf-8"
+  },
+  "report": {
+    "output_dir": "reports",
+    "latest_name": "latest.md"
+  },
   "limits": {
-    "max_items": 60,
-    "max_report_items": 30
+    "max_items": 150,
+    "max_report_items": 45
   },
   "database_path": "data/news_history.sqlite3"
 }
