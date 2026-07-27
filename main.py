@@ -17,9 +17,10 @@ from astrbot.core.star.star_tools import StarTools
 from .ai_news_bot.fetch_rss import fetch_rss_feed
 from .ai_news_bot.fetch_hn import fetch_hacker_news
 from .ai_news_bot.fetch_github import fetch_github_trending
+from .ai_news_bot.github_interest import annotate_match_reason, fetch_github_interest_items
 from .ai_news_bot.dedupe import dedupe_items
 from .ai_news_bot.help import build_news_help
-from .ai_news_bot.rank import select_report_items
+from .ai_news_bot.rank import DEFAULT_INTEREST_LIMIT, select_report_items
 from .ai_news_bot.render import fix_numbering, render_fallback_report
 from .ai_news_bot.schedule import (
     add_subscription,
@@ -28,7 +29,8 @@ from .ai_news_bot.schedule import (
     resolve_schedule_settings,
 )
 from .ai_news_bot.storage import NewsStore
-from .ai_news_bot.models import NewsItem
+from .ai_news_bot.star_profile import get_or_build_profile, resolve_github_token
+from .ai_news_bot.models import INTEREST_CATEGORY, NewsItem
 
 
 SCHEDULE_KV_KEY = "schedule_settings"
@@ -40,10 +42,10 @@ SYSTEM_PROMPT = """你是严谨的中文科技日报编辑。
 1. 只使用候选新闻中的事实，不得编造公司名、数字、日期、融资金额或发布内容。
 2. 单来源重大新闻必须标注"未交叉验证"。
 3. 日报头部使用 "# 📡 Furina · 每日科技/AI日报"（Markdown 一级标题）。
-4. 输出固定三节，节标题分别是：## 🔥 科技热点 / ## 🤖 AI动态 / ## 📦 GitHub Trending。
-5. 【数量要求】科技热点 6~8 条，AI动态 6~8 条，GitHub Trending 恰好 10 条。
+4. 输出固定四节，节标题分别是：## 🔥 科技热点 / ## 🤖 AI动态 / ## 📦 GitHub Trending / ## ⭐ 你可能感兴趣。若「你可能感兴趣」候选为 0 条可省略该节。
+5. 【数量要求】科技热点 6~8 条，AI动态 6~8 条，GitHub Trending 恰好 10 条，你可能感兴趣最多 8 条。
 6. 【序号要求】每节内部必须用 1. 2. 3. 阿拉伯数字编号，从 1 开始，禁止用项目符号（-）或字母。
-7. 【格式要求】每条正文写 1~2 句说明"发生了什么"和"为什么值得看"，控制在 80~150 个中文字符。
+7. 【格式要求】科技热点/AI动态/Trending 每条正文写 1~2 句说明"发生了什么"和"为什么值得看"，控制在 80~150 个中文字符。
 8. 【来源标注】科技热点和 AI动态 每条末尾加括号注明来源媒体，格式：（来源：媒体名）。不要输出完整 URL。
 9. 【GitHub 链接】候选新闻中每条 GitHub Trending 条目已提供"仓库链接（必须原样保留）"字段，输出时必须将该 Markdown 链接原样放在正文之前，禁止修改或省略链接。
 10. 重要词语或关键数字可用 **加粗**。
@@ -53,13 +55,13 @@ SYSTEM_PROMPT = """你是严谨的中文科技日报编辑。
 def _format_items(items: list[NewsItem]) -> str:
     lines = []
     for index, item in enumerate(items, start=1):
-        if item.category == "GitHub Trending":
+        if item.category in {"GitHub Trending", INTEREST_CATEGORY}:
             # 预格式化 markdown 链接，LLM 直接复制，无需自行生成
             link = f"[{item.title}]({item.url})"
             lines.append(
                 "\n".join(
                     [
-                        f"{index}. 分类：GitHub Trending",
+                        f"{index}. 分类：{item.category}",
                         f"   仓库链接（必须原样保留）：{link}",
                         f"   摘要：{item.summary or '无'}",
                     ]
@@ -283,14 +285,16 @@ class AiNewsBotPlugin(Star):
         sources = await asyncio.to_thread(self._load_sources_sync)
         max_items = int(self._conf("max_report_items", 30) or 30)
 
+        interest_limit = int(sources.get("github_interest", {}).get("limit", DEFAULT_INTEREST_LIMIT))
+        report_limit = max_items + interest_limit
         candidates = await asyncio.to_thread(self._collect_items_sync, sources, max_items)
         new_items = await asyncio.to_thread(self._filter_seen_sync, data_dir, candidates)
-        items = select_report_items(new_items, max_items)
-        minimum_report_items = min(max_items, 17)
+        items = select_report_items(new_items, report_limit, interest_limit=interest_limit)
+        minimum_report_items = min(report_limit, 17)
         if len(items) < minimum_report_items:
             selected_urls = {item.url for item in items}
             top_up_items = [item for item in candidates if item.url not in selected_urls]
-            items = select_report_items(items + top_up_items, max_items)
+            items = select_report_items(items + top_up_items, report_limit, interest_limit=interest_limit)
             logger.info(
                 f"[AI News Bot] 新内容不足 {minimum_report_items} 条，已使用候选池补齐至 {len(items)} 条"
             )

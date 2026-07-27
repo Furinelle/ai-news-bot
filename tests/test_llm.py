@@ -34,9 +34,10 @@ class LlmTests(unittest.TestCase):
         self.assertIn("## 🔥 科技热点", joined)
         self.assertIn("## 🤖 AI动态", joined)
         self.assertIn("## 📦 GitHub Trending", joined)
-        self.assertIn("每个部分最多输出 15 条", joined)
-        self.assertIn("科技热点最多 15 条、AI动态最多 15 条、GitHub Trending最多 15 条", joined)
-        self.assertIn("候选不足时可以少于 15 条", joined)
+        self.assertIn("## ⭐ 你可能感兴趣", joined)
+        self.assertIn("输出固定四节", joined)
+        self.assertIn("「你可能感兴趣」最多输出 8 条", joined)
+        self.assertIn("一技之长", joined)
         self.assertIn("绝不能用 Hacker News", joined)
         self.assertIn("普通新闻不要输出裸链接", joined)
         self.assertIn("每条必须在末尾保留可点击来源名", joined)
@@ -47,6 +48,7 @@ class LlmTests(unittest.TestCase):
         self.assertIn("https://example.com/chip", joined)
         self.assertIn("科技热点", joined)
         self.assertIn("GitHub Trending", joined)
+        self.assertIn("你可能感兴趣", joined)
 
     def test_build_chat_payload_can_enable_thinking_mode(self):
         payload = build_chat_payload(

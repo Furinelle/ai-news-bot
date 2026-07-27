@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+# 日报第四节：个性化 GitHub 兴趣推荐
+INTEREST_CATEGORY = "你可能感兴趣"
+
 
 @dataclass(frozen=True)
 class NewsItem:
@@ -13,4 +16,3 @@ class NewsItem:
     published_at: str | None = None
     score: float = 0.0
     tags: list[str] = field(default_factory=list)
-

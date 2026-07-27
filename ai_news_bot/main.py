@@ -15,13 +15,15 @@ from .fetch_github import fetch_github_trending
 from .fetch_hn import fetch_hacker_news
 from .fetch_json_api import fetch_json_api
 from .fetch_rss import fetch_rss_feed
+from .github_interest import annotate_match_reason, fetch_github_interest_items
 from .llm import LlmError, summarize_with_llm
-from .models import NewsItem
+from .models import INTEREST_CATEGORY, NewsItem
 from .pushplus import send_pushplus
 from .r2 import R2UploadResult, build_r2_key, create_presigned_get_url, upload_file_to_r2
-from .rank import select_report_items, select_report_items_with_fallback
+from .rank import DEFAULT_INTEREST_LIMIT, select_report_items, select_report_items_with_fallback
 from .remote_push import send_remote_push
 from .render import default_date_label, render_fallback_report, render_html_report
+from .star_profile import get_or_build_profile, resolve_github_token
 from .storage import NewsStore
 from .telegram_push import (
     TelegramSendResult,
@@ -80,8 +82,49 @@ def collect_items(sources: dict, max_items: int) -> list[NewsItem]:
             warn(f"skipping Hacker News: {exc}")
 
     items.extend(collect_github_trending_items(sources.get("github_trending", {})))
+    items.extend(collect_github_interest_items(sources.get("github_interest", {}), existing_items=items))
 
-    return select_report_items(dedupe_items(items), limit=max_items)
+    interest_limit = int(sources.get("github_interest", {}).get("limit", DEFAULT_INTEREST_LIMIT))
+    # 兴趣节单独占位，不挤占前三节的 max_items 配额
+    interest_count = sum(1 for item in items if item.category == INTEREST_CATEGORY)
+    total_limit = max_items + min(interest_count, interest_limit)
+    return select_report_items(dedupe_items(items), limit=total_limit, interest_limit=interest_limit)
+
+
+def collect_github_interest_items(
+    interest: dict,
+    existing_items: list[NewsItem] | None = None,
+) -> list[NewsItem]:
+    if not interest:
+        return []
+    if not interest.get("enabled", False):
+        return []
+
+    existing_urls = [item.url for item in (existing_items or [])]
+    try:
+        items = fetch_github_interest_items(interest, exclude_urls=existing_urls)
+    except Exception as exc:
+        warn(f"skipping GitHub interest recommendations: {exc}")
+        return []
+
+    try:
+        username = str(interest.get("username") or interest.get("user") or "").strip()
+        if username:
+            token = resolve_github_token(
+                token=str(interest.get("token") or "").strip() or None,
+                token_env=str(interest.get("token_env") or "GITHUB_TOKEN"),
+            )
+            profile = get_or_build_profile(
+                username=username,
+                cache_path=str(interest.get("profile_cache_path") or "data/star_profile.json"),
+                token=token or None,
+                ttl_hours=float(interest.get("profile_ttl_hours", 24)),
+            )
+            items = [annotate_match_reason(item, profile) for item in items]
+    except Exception as exc:
+        warn(f"failed to annotate interest match reasons: {exc}")
+
+    return items
 
 
 def collect_github_trending_items(github: dict) -> list[NewsItem]:
@@ -168,10 +211,13 @@ def build_report(
         )
         combined = dedupe_items([*new_items, *yesterday_items])
         yesterday_items = combined[len(new_items) :]
+        interest_limit = int(sources.get("github_interest", {}).get("limit", DEFAULT_INTEREST_LIMIT))
+        report_limit = config.limits.max_report_items + interest_limit
         selected = select_report_items_with_fallback(
             primary_items=new_items,
             fallback_items=yesterday_items,
-            limit=config.limits.max_report_items,
+            limit=report_limit,
+            interest_limit=interest_limit,
         )
         if use_llm and selected:
             report = summarize_with_llm(

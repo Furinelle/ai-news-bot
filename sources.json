@@ -114,5 +114,18 @@
     "languages": [
       ""
     ]
+  },
+  "github_interest": {
+    "enabled": true,
+    "username": "Furinelle",
+    "token_env": "GITHUB_TOKEN",
+    "limit": 8,
+    "min_stars": 80,
+    "max_stars": 20000,
+    "pushed_within_days": 150,
+    "max_queries": 10,
+    "per_query": 12,
+    "profile_cache_path": "data/star_profile.json",
+    "profile_ttl_hours": 24
   }
 }

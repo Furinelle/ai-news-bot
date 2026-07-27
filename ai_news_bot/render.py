@@ -8,12 +8,14 @@ import re
 from .models import NewsItem
 
 
-SECTION_ORDER = ("科技热点", "AI动态", "GitHub Trending")
+SECTION_ORDER = ("科技热点", "AI动态", "GitHub Trending", "你可能感兴趣")
 SECTION_HEADINGS = {
     "科技热点": "## 🔥 科技热点",
     "AI动态": "## 🤖 AI动态",
     "GitHub Trending": "## 📦 GitHub Trending",
+    "你可能感兴趣": "## ⭐ 你可能感兴趣",
 }
+GITHUB_LINK_SECTIONS = {"GitHub Trending", "你可能感兴趣"}
 
 
 def strip_markdown_emphasis(text: str) -> str:
@@ -59,7 +61,13 @@ def _canonical_section_heading(line: str) -> str | None:
     stripped = line.strip()
     stripped = re.sub(r"^#+\s*", "", stripped)
     stripped = re.sub(r"^(一|二|三|[0-9]+)[、.)]\s*", "", stripped)
-    stripped = stripped.replace("🔥", "").replace("🤖", "").replace("📦", "").strip()
+    stripped = (
+        stripped.replace("🔥", "")
+        .replace("🤖", "")
+        .replace("📦", "")
+        .replace("⭐", "")
+        .strip()
+    )
     stripped = stripped.rstrip(":：").strip()
     normalized = re.sub(r"\s+", " ", stripped).casefold()
     if normalized == "科技热点":
@@ -68,6 +76,8 @@ def _canonical_section_heading(line: str) -> str | None:
         return SECTION_HEADINGS["AI动态"]
     if normalized == "github trending":
         return SECTION_HEADINGS["GitHub Trending"]
+    if normalized in {"你可能感兴趣", "可能感兴趣", "github 兴趣推荐", "兴趣推荐"}:
+        return SECTION_HEADINGS["你可能感兴趣"]
     return None
 
 
@@ -118,7 +128,7 @@ def render_fallback_report(items: list[NewsItem], date_label: str | None = None)
         lines.extend(["", heading, ""])
         for index, item in enumerate(section_items, start=1):
             summary = f" — {item.summary}" if item.summary else ""
-            if section == "GitHub Trending":
+            if section in GITHUB_LINK_SECTIONS:
                 lines.append(f"{index}. [{item.title}]({item.url}){summary}")
             else:
                 lines.append(f"{index}. {item.title}{summary}（来源：[{item.source}]({item.url})）")
@@ -268,7 +278,7 @@ def render_html_report(markdown: str, title: str = "Furina · 每日科技/AI日
     }}
     .tabs {{
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
       gap: 6px;
       margin: 18px 0 22px;
       padding: 4px;
@@ -310,7 +320,7 @@ def render_html_report(markdown: str, title: str = "Furina · 每日科技/AI日
         font-size: 1.85rem;
       }}
       .tabs {{
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
         gap: 4px;
         top: max(0px, env(safe-area-inset-top));
       }}

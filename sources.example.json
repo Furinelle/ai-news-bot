@@ -61,11 +61,21 @@
       "url": "https://api.spaceflightnewsapi.net/v4/articles/?limit=8",
       "category": "科技热点",
       "items_path": "results",
-      "title_fields": ["title"],
-      "url_fields": ["url"],
-      "summary_fields": ["summary"],
-      "published_fields": ["published_at"],
-      "source_fields": ["news_site"],
+      "title_fields": [
+        "title"
+      ],
+      "url_fields": [
+        "url"
+      ],
+      "summary_fields": [
+        "summary"
+      ],
+      "published_fields": [
+        "published_at"
+      ],
+      "source_fields": [
+        "news_site"
+      ],
       "limit": 8
     }
   ],
@@ -76,8 +86,26 @@
   "github_trending": {
     "enabled": true,
     "since": "daily",
-    "extra_since": ["weekly", "monthly"],
+    "extra_since": [
+      "weekly",
+      "monthly"
+    ],
     "limit": 50,
-    "languages": [""]
+    "languages": [
+      ""
+    ]
+  },
+  "github_interest": {
+    "enabled": true,
+    "username": "Furinelle",
+    "token_env": "GITHUB_TOKEN",
+    "limit": 8,
+    "min_stars": 80,
+    "max_stars": 20000,
+    "pushed_within_days": 150,
+    "max_queries": 10,
+    "per_query": 12,
+    "profile_cache_path": "data/star_profile.json",
+    "profile_ttl_hours": 24
   }
 }

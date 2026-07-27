@@ -4,4 +4,6 @@ __pycache__/
 data/
 reports/
 config.json
+.DS_Store
+.wrangler/
 

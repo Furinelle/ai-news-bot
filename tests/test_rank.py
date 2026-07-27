@@ -164,5 +164,41 @@ class RankTests(unittest.TestCase):
         self.assertTrue(all(item.source == "Fresh" for item in selected[:8]))
 
 
+    def test_select_report_items_reserves_interest_section_without_blocking_primary(self):
+        items = []
+        for category in ("科技热点", "AI动态", "GitHub Trending"):
+            items.extend(
+                NewsItem(
+                    title=f"{category} {i}",
+                    url=f"https://example.com/{category}/{i}",
+                    source="Source",
+                    category=category,
+                    score=i,
+                )
+                for i in range(10)
+            )
+        items.extend(
+            NewsItem(
+                title=f"interest/{i}",
+                url=f"https://github.com/interest/{i}",
+                source="GitHub 兴趣推荐",
+                category="你可能感兴趣",
+                score=50 + i,
+            )
+            for i in range(12)
+        )
+
+        selected = select_report_items(items, limit=20, interest_limit=5)
+
+        self.assertEqual(sum(1 for item in selected if item.category == "你可能感兴趣"), 5)
+        self.assertGreaterEqual(sum(1 for item in selected if item.category == "科技热点"), 1)
+        self.assertGreaterEqual(sum(1 for item in selected if item.category == "AI动态"), 1)
+        interest_indexes = [index for index, item in enumerate(selected) if item.category == "你可能感兴趣"]
+        primary_indexes = [index for index, item in enumerate(selected) if item.category != "你可能感兴趣"]
+        self.assertTrue(interest_indexes)
+        self.assertTrue(all(i > max(primary_indexes) for i in interest_indexes) or not primary_indexes)
+
+
+
 if __name__ == "__main__":
     unittest.main()

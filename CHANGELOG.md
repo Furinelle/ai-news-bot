@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.5.0] - 2026-07-27
+
+### 新增
+- 日报第四节 **⭐ 你可能感兴趣**：根据 GitHub star 画像 + Search 推荐未必上 Trending、但有一技之长的仓库
+- 新增 `github_interest` 数据源配置（`sources.json` / `sources.example.json`）
+- 新增 `star_profile` / `github_interest` 模块：画像缓存、兴趣簇搜索、中腰部打分、topic 多样性去重
+- VPS CLI 与 AstrBot 插件路径均已接入；Telegram 推送会一并提取兴趣节仓库
+
+### 变更
+- LLM / fallback 报告固定为四节结构；兴趣节最多 8 条，不挤占前三节配额
+- HTML 标签页支持自适应列数
+
+
 ## [1.4.6] - 2026-05-14
 
 ### 新增

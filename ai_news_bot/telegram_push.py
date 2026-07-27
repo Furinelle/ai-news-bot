@@ -31,6 +31,7 @@ class TelegramGitHubMessage:
 
 
 def extract_github_trending_entries(report: str) -> list[TelegramGitHubMessage]:
+    """提取 GitHub Trending 与「你可能感兴趣」两节中的仓库条目。"""
     entries: list[TelegramGitHubMessage] = []
     seen_urls: set[str] = set()
     in_github_section = False
@@ -38,7 +39,12 @@ def extract_github_trending_entries(report: str) -> list[TelegramGitHubMessage]:
     for raw_line in report.splitlines():
         line = raw_line.strip()
         if line.startswith("## "):
-            in_github_section = "GitHub Trending" in line
+            heading = line.casefold()
+            in_github_section = (
+                ("github trending" in heading)
+                or ("你可能感兴趣" in line)
+                or ("可能感兴趣" in line)
+            )
             continue
         if not in_github_section:
             continue

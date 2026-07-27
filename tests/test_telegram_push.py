@@ -38,6 +38,10 @@ class TelegramPushTests(unittest.TestCase):
 2. [owner/repo](https://github.com/owner/repo?utm_source=test) — 重复仓库。
 3. [bad](https://example.com/bad) — 不是 GitHub。
 
+## ⭐ 你可能感兴趣
+
+1. [owner/gem](https://github.com/owner/gem) — 有一技之长的小工具。
+
 ## 🔥 科技热点
 
 1. 另一条新闻
@@ -45,7 +49,13 @@ class TelegramPushTests(unittest.TestCase):
 
         messages = extract_github_trending_messages(report)
 
-        self.assertEqual(messages, ['<a href="https://github.com/owner/repo">owner/repo</a> — 一个中文简介。'])
+        self.assertEqual(
+            messages,
+            [
+                '<a href="https://github.com/owner/repo">owner/repo</a> — 一个中文简介。',
+                '<a href="https://github.com/owner/gem">owner/gem</a> — 有一技之长的小工具。',
+            ],
+        )
 
     def test_build_telegram_github_message_escapes_html(self):
         message = build_telegram_github_message(

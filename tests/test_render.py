@@ -20,6 +20,13 @@ class RenderTests(unittest.TestCase):
                     source="GitHub Trending",
                     category="GitHub Trending",
                 ),
+                NewsItem(
+                    title="owner/niche-tool",
+                    url="https://github.com/owner/niche-tool",
+                    source="GitHub 兴趣推荐",
+                    category="你可能感兴趣",
+                    summary="Rust 单二进制 Telegram 审批网关",
+                ),
             ],
             date_label="2026年5月9日",
         )
@@ -28,10 +35,12 @@ class RenderTests(unittest.TestCase):
         self.assertIn("2026年5月9日", report)
         self.assertIn("## 🤖 AI动态", report)
         self.assertIn("## 📦 GitHub Trending", report)
+        self.assertIn("## ⭐ 你可能感兴趣", report)
         self.assertIn("1. OpenAI releases a realtime model", report)
         self.assertIn("（来源：[Example](https://example.com/openai)）", report)
         self.assertNotIn("[OpenAI releases a realtime model](https://example.com/openai)", report)
         self.assertIn("[A repository is trending](https://github.com/example/repo)", report)
+        self.assertIn("[owner/niche-tool](https://github.com/owner/niche-tool)", report)
         self.assertIn("---\n由 AI News Bot 自动生成", report)
         self.assertNotIn("2. 由 AI News Bot 自动生成", report)
 

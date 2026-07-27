@@ -1,6 +1,6 @@
 # AI News Bot — VPS 每日科技/AI日报
 
-每日科技/AI日报服务。抓取 RSS、Hacker News、GitHub Trending，去重排序后交给 OpenAI-compatible LLM 生成结构化中文日报。项目既保留 AstrBot 插件入口，也提供可直接运行在 VPS 上的 CLI + systemd timer：每天生成日报、发布到 Rin 博客、保存本地 Markdown、上传 Cloudflare R2，并通过 Scripting Remote Push 推送博客链接到 iPhone。
+每日科技/AI日报服务。抓取 RSS、Hacker News、GitHub Trending，并结合你的 GitHub star 图谱做个性化仓库推荐，去重排序后交给 OpenAI-compatible LLM 生成结构化中文日报。项目既保留 AstrBot 插件入口，也提供可直接运行在 VPS 上的 CLI + systemd timer：每天生成日报、发布到 Rin 博客、保存本地 Markdown、上传 Cloudflare R2，并通过 Scripting Remote Push 推送博客链接到 iPhone。
 
 ## 功能
 
@@ -11,9 +11,10 @@
 - 博客发布：登录 Rin 管理 API，按日期幂等发布公开文章
 - iPhone 通知：通过 Scripting Remote Push 发送通知，正文和点击动作均使用博客文章链接
 - `/news` 命令：即时生成并分段发送当日科技/AI日报
+- **⭐ 你可能感兴趣**：根据 star 列表建立兴趣画像，用 GitHub Search 找未必上 Trending、但有一技之长的仓库（过滤已 star / fork / 合集向仓库），写入日报第四节
 - 多源采集：TechCrunch AI、The Verge、Ars Technica、MIT Technology Review、VentureBeat AI、Wired、OpenAI Blog、Google AI Blog、GitHub Blog、Hacker News、GitHub Trending
 - URL 和标题去重，SQLite 记录已推送链接，减少重复内容
-- LLM 生成中文摘要，格式固定：科技热点 / AI动态 / GitHub Trending 三节，每节最多 15 条
+- LLM 生成中文摘要，格式固定四节：科技热点 / AI动态 / GitHub Trending / 你可能感兴趣（前三节各最多 15 条，兴趣节最多 8 条）
 - 每条附来源媒体名，GitHub Trending 附仓库链接
 - 无 LLM 时自动回退为 Markdown 原文模式
 
@@ -111,7 +112,7 @@ https://github.com/Furinelle/ai-news-bot
 /news
 ```
 
-插件会先回复"生成中"提示，随后将日报按三节（科技热点 / AI动态 / GitHub Trending）分段发送；VPS 生成的 HTML 阅读页会把三节放在同一个页面的标签页中。
+插件会先回复"生成中"提示，随后将日报按四节（科技热点 / AI动态 / GitHub Trending / 你可能感兴趣）分段发送；VPS 生成的 HTML 阅读页会把各节放在同一个页面的标签页中。
 
 查看指令列表：
 
@@ -175,6 +176,26 @@ https://github.com/Furinelle/ai-news-bot
 | Spaceflight News API | 科技热点 |
 | Hacker News | 科技热点 |
 | GitHub Trending | GitHub Trending |
+| GitHub 兴趣推荐（star 画像 + Search） | 你可能感兴趣 |
+
+### `github_interest` 配置（`sources.json`）
+
+```json
+"github_interest": {
+  "enabled": true,
+  "username": "Furinelle",
+  "token_env": "GITHUB_TOKEN",
+  "limit": 8,
+  "min_stars": 80,
+  "max_stars": 20000,
+  "pushed_within_days": 150,
+  "profile_cache_path": "data/star_profile.json",
+  "profile_ttl_hours": 24
+}
+```
+
+- 需要可读 star 列表：配置 `GITHUB_TOKEN`，或本机已登录 `gh`
+- 候选不必上 Trending；会排除已 star / fork / 合集向仓库
 
 ## 事实安全
 
