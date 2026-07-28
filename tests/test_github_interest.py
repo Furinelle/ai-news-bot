@@ -32,14 +32,19 @@ class GitHubInterestTests(unittest.TestCase):
         self.assertTrue(any(lang == "Python" for lang, _ in profile.languages))
         self.assertTrue(any(topic == "claude-code" for topic, _ in profile.topics))
 
-        queries = build_search_queries(profile, max_queries=12)
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+
+        # 周二轮转簇包含 telegram / pixiv
+        tuesday = datetime(2026, 7, 28, tzinfo=ZoneInfo("Asia/Shanghai"))
+        queries = build_search_queries(profile, max_queries=14, now=tuesday)
         self.assertTrue(queries)
         self.assertTrue(
-            any("topic:claude-code" in query for query in queries)
-            or any("mcp" in query for query in queries)
+            any("mcp" in query for query in queries)
+            or any("topic:claude-code" in query for query in queries)
             or any("telegram" in query for query in queries)
         )
-        self.assertTrue(any("telegram" in query for query in queries))
+        self.assertTrue(any("telegram" in query or "pixiv" in query for query in queries))
         self.assertTrue(all("fork:false" in query for query in queries))
 
     def test_score_repository_prefers_distinctive_unstarred_tools(self):

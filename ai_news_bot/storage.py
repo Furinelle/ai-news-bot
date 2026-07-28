@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from datetime import datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from .dedupe import normalize_url, same_event
-from .models import NewsItem
+from .models import INTEREST_CATEGORY, NewsItem
 
 
 class NewsStore:
@@ -51,25 +53,116 @@ class NewsStore:
             """
         )
         self.connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS interest_recommended (
+                url TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                recommended_on TEXT NOT NULL
+            )
+            """
+        )
+        self.connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_news_candidates_discovered_on ON news_candidates(discovered_on)"
+        )
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_interest_recommended_on ON interest_recommended(recommended_on)"
         )
         self._backfill_normalized_seen_urls()
         self._backfill_normalized_telegram_github_urls()
         self.connection.commit()
 
-    def filter_new(self, items: list[NewsItem]) -> list[NewsItem]:
-        seen_rows = self.connection.execute("SELECT url, title FROM seen_urls").fetchall()
-        seen_urls = {url for url, _title in seen_rows}
-        seen_titles = [title for _url, title in seen_rows]
+    def filter_new(
+        self,
+        items: list[NewsItem],
+        *,
+        trending_cooldown_days: int = 7,
+        interest_cooldown_days: int = 21,
+    ) -> list[NewsItem]:
+        """按类别冷却过滤。新闻永久去重；Trending/兴趣用冷却窗口。"""
+        seen_rows = self.connection.execute(
+            "SELECT url, title, seen_at FROM seen_urls"
+        ).fetchall()
+        seen_map = {url: (title, seen_at) for url, title, seen_at in seen_rows}
+        permanent_titles = [title for title, _seen_at in ((t, s) for _u, t, s in seen_rows)]
+
+        interest_cooled = self.interest_urls_in_cooldown(interest_cooldown_days)
+        now = datetime.now(ZoneInfo("Asia/Shanghai"))
+
         result = []
         for item in items:
             key = normalize_url(item.url)
-            if key in seen_urls:
+
+            if item.category == INTEREST_CATEGORY:
+                if key in interest_cooled:
+                    continue
+                result.append(item)
                 continue
-            if any(same_event(item.title, title) for title in seen_titles):
+
+            if item.category == "GitHub Trending":
+                if key in seen_map:
+                    _title, seen_at = seen_map[key]
+                    if not self._is_older_than(seen_at, trending_cooldown_days, now):
+                        continue
+                result.append(item)
+                continue
+
+            # 普通新闻：永久去重
+            if key in seen_map:
+                continue
+            if any(same_event(item.title, title) for title in permanent_titles):
                 continue
             result.append(item)
         return result
+
+    def interest_urls_in_cooldown(self, cooldown_days: int) -> set[str]:
+        if cooldown_days <= 0:
+            rows = self.connection.execute("SELECT url FROM interest_recommended").fetchall()
+            return {str(url) for (url,) in rows}
+        cutoff = (
+            datetime.now(ZoneInfo("Asia/Shanghai")) - timedelta(days=cooldown_days)
+        ).strftime("%Y-%m-%d")
+        rows = self.connection.execute(
+            "SELECT url FROM interest_recommended WHERE recommended_on >= ?",
+            (cutoff,),
+        ).fetchall()
+        return {str(url) for (url,) in rows}
+
+    def mark_interest_recommended(self, items: list[NewsItem], recommended_on: str) -> None:
+        interest_items = [item for item in items if item.category == INTEREST_CATEGORY]
+        if not interest_items:
+            return
+        self.connection.executemany(
+            """
+            INSERT INTO interest_recommended (url, title, recommended_on)
+            VALUES (?, ?, ?)
+            ON CONFLICT(url) DO UPDATE SET
+                title = excluded.title,
+                recommended_on = excluded.recommended_on
+            """,
+            [
+                (normalize_url(item.url), item.title, recommended_on)
+                for item in interest_items
+            ],
+        )
+        self.connection.commit()
+
+    @staticmethod
+    def _is_older_than(seen_at: str, days: int, now: datetime) -> bool:
+        if days <= 0:
+            return False
+        try:
+            # SQLite CURRENT_TIMESTAMP is UTC-ish 'YYYY-MM-DD HH:MM:SS'
+            parsed = datetime.fromisoformat(str(seen_at).replace("Z", "+00:00"))
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=ZoneInfo("UTC"))
+        except ValueError:
+            try:
+                parsed = datetime.strptime(str(seen_at)[:10], "%Y-%m-%d").replace(
+                    tzinfo=ZoneInfo("Asia/Shanghai")
+                )
+            except ValueError:
+                return False
+        return (now - parsed.astimezone(ZoneInfo("Asia/Shanghai"))) >= timedelta(days=days)
 
     def remember_candidates(self, items: list[NewsItem], discovered_on: str) -> None:
         self.connection.executemany(
@@ -145,11 +238,31 @@ class NewsStore:
     def candidate_count(self) -> int:
         return int(self.connection.execute("SELECT COUNT(*) FROM news_candidates").fetchone()[0])
 
-    def mark_seen(self, items: list[NewsItem]) -> None:
-        self.connection.executemany(
-            "INSERT OR IGNORE INTO seen_urls (url, title, source) VALUES (?, ?, ?)",
-            [(normalize_url(item.url), item.title, item.source) for item in items],
-        )
+    def mark_seen(self, items: list[NewsItem], recommended_on: str | None = None) -> None:
+        """新闻与 Trending 写入 seen；兴趣写入冷却表，不进永久新闻 seen。"""
+        news_like = [item for item in items if item.category != INTEREST_CATEGORY]
+        interest = [item for item in items if item.category == INTEREST_CATEGORY]
+        if news_like:
+            self.connection.executemany(
+                "INSERT OR IGNORE INTO seen_urls (url, title, source) VALUES (?, ?, ?)",
+                [(normalize_url(item.url), item.title, item.source) for item in news_like],
+            )
+            # Trending 再次推荐时刷新 seen_at
+            self.connection.executemany(
+                """
+                UPDATE seen_urls
+                SET title = ?, source = ?, seen_at = CURRENT_TIMESTAMP
+                WHERE url = ?
+                """,
+                [
+                    (item.title, item.source, normalize_url(item.url))
+                    for item in news_like
+                    if item.category == "GitHub Trending"
+                ],
+            )
+        if interest:
+            day = recommended_on or datetime.now(ZoneInfo("Asia/Shanghai")).strftime("%Y-%m-%d")
+            self.mark_interest_recommended(interest, day)
         self.connection.commit()
 
     def clear_seen(self) -> int:

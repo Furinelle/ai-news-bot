@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import re
 from dataclasses import replace
+from datetime import datetime
 from typing import Any, Callable, Iterable
+from zoneinfo import ZoneInfo
 
 from .models import INTEREST_CATEGORY, NewsItem
 from .star_profile import (
@@ -78,31 +80,71 @@ GENERIC_PENALTY = (
     (r"\btemplate\b", 2.0),
 )
 
-# 搜索查询强制覆盖的兴趣簇（避免全被 claude-code 占满）
-INTEREST_CLUSTER_QUERIES = (
-    "telegram bot (approval OR daemon OR framework) language:Rust",
-    "self-hosted (monitoring OR uptime OR dashboard)",
-    "cloudflare workers (email OR shortener OR proxy OR status)",
-    "mcp server (memory OR context OR code)",
-    "agent memory OR long-term memory llm",
-    "pixiv (downloader OR client OR bot)",
-    "(tts OR \"voice clone\" OR \"voice cloning\")",
-    "(bbr OR sysctl OR bufferbloat OR tcp) (vps OR linux OR network)",
-    "telegram media downloader OR gallery-dl alternative",
-    "single binary cli (tui OR monitor OR proxy) language:Rust",
+# 兴趣簇按星期轮转，避免天天 MCP/记忆全家桶
+CLUSTER_ROTATION: dict[int, tuple[str, ...]] = {
+    # Monday=0
+    0: (
+        "mcp server (memory OR context OR code)",
+        "agent memory OR long-term memory llm",
+        "claude-code OR codex (skill OR hook OR router)",
+    ),
+    1: (
+        "telegram bot (approval OR daemon OR framework) language:Rust",
+        "telegram media downloader OR gallery-dl alternative",
+        "pixiv (downloader OR client OR bot)",
+    ),
+    2: (
+        "self-hosted (monitoring OR uptime OR dashboard)",
+        "cloudflare workers (email OR shortener OR proxy OR status)",
+        "single binary cli (tui OR monitor OR proxy) language:Rust",
+    ),
+    3: (
+        "(bbr OR sysctl OR bufferbloat OR tcp) (vps OR linux OR network)",
+        "wireguard (tunnel OR proxy OR panel)",
+        "self-hosted (proxy OR tunnel OR status)",
+    ),
+    4: (
+        "(tts OR \"voice clone\" OR \"voice cloning\")",
+        "pixiv (downloader OR client OR bot)",
+        "telegram bot language:Rust",
+    ),
+    5: (
+        "mcp server (memory OR context OR code)",
+        "self-hosted (monitoring OR uptime OR dashboard)",
+        "cloudflare workers (email OR shortener OR status)",
+    ),
+    6: (
+        "agent memory OR long-term memory llm",
+        "single binary cli (tui OR monitor OR proxy) language:Rust",
+        "(tts OR \"voice clone\")",
+        "telegram bot (approval OR daemon)",
+    ),
+}
+
+ALWAYS_ON_CLUSTERS = (
+    "mcp server memory",
+    "self-hosted monitoring",
 )
+
+
+def clusters_for_today(now: datetime | None = None) -> tuple[str, ...]:
+    current = now or datetime.now(ZoneInfo("Asia/Shanghai"))
+    weekday = current.weekday()
+    rotated = CLUSTER_ROTATION.get(weekday, CLUSTER_ROTATION[0])
+    return rotated + ALWAYS_ON_CLUSTERS
 
 
 def build_search_queries(
     profile: StarProfile,
     *,
     min_stars: int = 80,
-    max_stars: int = 20000,
+    max_stars: int = 12000,
     pushed_within_days: int = 150,
     created_within_days: int = 365,
-    max_queries: int = 12,
+    max_queries: int = 14,
+    now: datetime | None = None,
 ) -> list[str]:
-    """构造 GitHub 搜索查询：兴趣画像 + 强制兴趣簇，偏中腰部活跃非 fork。"""
+    """构造 GitHub 搜索查询：当日兴趣簇轮转 + 画像，偏中腰部活跃非 fork。"""
     pushed = iso_days_ago(pushed_within_days)
     created = iso_days_ago(created_within_days)
     star_range = f"stars:{min_stars}..{max_stars}"
@@ -110,11 +152,9 @@ def build_search_queries(
 
     queries: list[str] = []
 
-    # 1) 先塞兴趣簇：保证 Telegram / 自托管 / MCP / 网络 等都能搜到
-    for cluster in INTEREST_CLUSTER_QUERIES:
+    for cluster in clusters_for_today(now):
         queries.append(f"{cluster} {common}")
 
-    # 2) 画像 topics：跳过过于泛化的词，并限制同族 topic 数量
     generic_topics = {"ai", "llm", "python", "openai", "anthropic", "claude", "agent", "agents"}
     topic_added = 0
     for topic in profile.top_topics:
@@ -123,10 +163,9 @@ def build_search_queries(
             continue
         queries.append(f"topic:{safe} {common}")
         topic_added += 1
-        if topic_added >= 5:
+        if topic_added >= 4:
             break
 
-    # 3) 主力语言 + 能力词
     for language in profile.top_languages[:3]:
         if language.casefold() in {"html", "css", "jupyter notebook"}:
             continue
@@ -134,7 +173,6 @@ def build_search_queries(
             f"language:{language} {common} (cli OR bot OR monitor OR proxy OR memory OR tui OR daemon)"
         )
 
-    # 4) 新晋仓库：创建一年内
     for topic in profile.top_topics:
         safe = re.sub(r"[^\w\-.]", "", topic)
         if not safe or safe in generic_topics:
@@ -305,13 +343,14 @@ def collect_interest_repos(
     *,
     limit: int = 8,
     min_stars: int = 80,
-    max_stars: int = 40000,
+    max_stars: int = 12000,
     pushed_within_days: int = 150,
-    max_queries: int = 10,
+    max_queries: int = 14,
     per_query: int = 12,
     exclude_urls: Iterable[str] | None = None,
     client: Any | None = None,
     search: Callable[..., list[dict[str, Any]]] | None = None,
+    now: datetime | None = None,
 ) -> list[NewsItem]:
     search_fn = search or search_repositories
     exclude = {url.rstrip("/").casefold() for url in (exclude_urls or [])}
@@ -321,6 +360,7 @@ def collect_interest_repos(
         max_stars=max_stars,
         pushed_within_days=pushed_within_days,
         max_queries=max_queries,
+        now=now,
     )
 
     owns_client = client is None and search is None
@@ -330,10 +370,19 @@ def collect_interest_repos(
         client = httpx.Client(timeout=30.0)
 
     best: dict[str, NewsItem] = {}
+    # 交替 stars / updated，提高换血率
+    sort_cycle = ("stars", "updated", "stars", "updated")
     try:
-        for query in queries:
+        for index, query in enumerate(queries):
+            sort = sort_cycle[index % len(sort_cycle)]
             try:
-                repos = search_fn(query, token=token, per_page=per_query, client=client)
+                repos = search_fn(
+                    query,
+                    token=token,
+                    per_page=per_query,
+                    sort=sort,
+                    client=client,
+                )
             except Exception:
                 continue
             for repo in repos:
@@ -346,6 +395,9 @@ def collect_interest_repos(
                 score = score_repository(repo, profile)
                 if score < 0:
                     continue
+                # updated 排序的结果略加新鲜度分
+                if sort == "updated":
+                    score += 1.0
                 item = repo_to_news_item(repo, score)
                 previous = best.get(full_name.casefold())
                 if previous is None or item.score > previous.score:
@@ -450,9 +502,9 @@ def fetch_github_interest_items(
         token=token or None,
         limit=int(config.get("limit", 8)),
         min_stars=int(config.get("min_stars", 80)),
-        max_stars=int(config.get("max_stars", 40000)),
+        max_stars=int(config.get("max_stars", 12000)),
         pushed_within_days=int(config.get("pushed_within_days", 150)),
-        max_queries=int(config.get("max_queries", 12)),
+        max_queries=int(config.get("max_queries", 14)),
         per_query=int(config.get("per_query", 12)),
         exclude_urls=exclude_urls,
         client=client,

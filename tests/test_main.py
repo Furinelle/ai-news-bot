@@ -38,7 +38,7 @@ class MainTests(unittest.TestCase):
             main_module.fetch_rss_feed = lambda **_kwargs: [
                 NewsItem(title="AI story", url="https://example.com/ai", source="AI RSS", category="AI动态", score=1)
             ]
-            main_module.fetch_hacker_news = lambda limit: [
+            main_module.fetch_hacker_news = lambda limit=20, min_score=40, **_k: [
                 NewsItem(title="Tech story", url="https://example.com/tech", source="HN", category="科技热点", score=1)
             ]
             main_module.fetch_github_trending = lambda **_kwargs: [
@@ -83,7 +83,7 @@ class MainTests(unittest.TestCase):
 
             main_module.fetch_rss_feed = fake_rss
             main_module.fetch_json_api = lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("429 Too Many Requests"))
-            main_module.fetch_hacker_news = lambda limit: (_ for _ in ()).throw(RuntimeError("429 Too Many Requests"))
+            main_module.fetch_hacker_news = lambda limit=20, min_score=40, **_k: (_ for _ in ()).throw(RuntimeError("429 Too Many Requests"))
             main_module.fetch_github_trending = lambda **_kwargs: [
                 NewsItem(
                     title="Repo",
@@ -117,7 +117,7 @@ class MainTests(unittest.TestCase):
         calls = []
         original_github = main_module.fetch_github_trending
         try:
-            def fake_github(language, since, limit):
+            def fake_github(language, since, limit, **_k):
                 calls.append((language, since, limit))
                 offset = {"daily": 0, "weekly": 20, "monthly": 40}[since]
                 return [
@@ -138,7 +138,7 @@ class MainTests(unittest.TestCase):
             github_items = [item for item in items if item.category == "GitHub Trending"]
             self.assertEqual(len(github_items), 50)
             self.assertEqual([call[1] for call in calls], ["daily", "weekly", "monthly"])
-            self.assertTrue(all(call[2] == 50 for call in calls))
+            self.assertTrue(all(call[2] == 25 for call in calls))  # per-request cap
         finally:
             main_module.fetch_github_trending = original_github
 
@@ -169,7 +169,7 @@ class MainTests(unittest.TestCase):
             try:
                 os.environ["TEST_LLM_KEY"] = "llm-secret"
                 os.environ["TEST_PUSHPLUS_TOKEN"] = "push-secret"
-                main_module.collect_items = lambda _sources, max_items: [
+                main_module.collect_items = lambda _sources, max_items, **_k: [
                     NewsItem(title="Test AI news", url="https://example.com/ai", source="Example")
                 ]
 
@@ -242,7 +242,7 @@ class MainTests(unittest.TestCase):
             original_collect = main_module.collect_items
             try:
                 os.environ["TEST_LLM_KEY"] = "llm-secret"
-                main_module.collect_items = lambda _sources, max_items: [today_fresh]
+                main_module.collect_items = lambda _sources, max_items, **_k: [today_fresh]
 
                 _report, selected = build_report(
                     config_path,
@@ -286,7 +286,7 @@ class MainTests(unittest.TestCase):
             original_collect = main_module.collect_items
             try:
                 os.environ["TEST_LLM_KEY"] = "llm-secret"
-                main_module.collect_items = lambda _sources, max_items: [
+                main_module.collect_items = lambda _sources, max_items, **_k: [
                     NewsItem(title="Test AI news", url="https://example.com/ai", source="Example")
                 ]
                 sys.argv = [

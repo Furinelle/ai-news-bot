@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.6.0] - 2026-07-28
+
+### 移除
+- 删除 AstrBot 插件入口（根目录 `main.py`、`metadata.yaml`、`_conf_schema.json`）及 `help` / `schedule` 模块
+
+### 新增
+- 兴趣推荐 **21 天冷却表**（`interest_recommended`），不再与新闻永久 seen 混用
+- 兴趣簇 **按星期轮转** + Search 交替 `stars`/`updated` 排序换血
+- Trending 解析 **今日 star**、HTTP 重试、默认多语言抓取、**7 天冷却**
+- HN `min_score` 过滤、AI 关键词分流、每节 HN 条数上限
+- LLM 输出后处理：GitHub 节格式校正、去错误来源尾巴、空话过滤
+- 运行指标 `data/metrics-YYYY-MM-DD.json`（`--send` 时写入）
+
+### 变更
+- 项目定位为纯 VPS CLI + systemd（Telegram 频道推送逻辑保持逐条仓库）
+
+---
+
 ## [1.5.0] - 2026-07-27
 
 ### 新增

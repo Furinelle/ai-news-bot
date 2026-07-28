@@ -105,15 +105,20 @@
   ],
   "hacker_news": {
     "enabled": true,
-    "limit": 20
+    "limit": 20,
+    "min_score": 40
   },
   "github_trending": {
     "enabled": true,
     "since": "daily",
-    "limit": 10,
+    "limit": 30,
     "languages": [
-      ""
-    ]
+      "",
+      "python",
+      "typescript",
+      "rust"
+    ],
+    "cooldown_days": 7
   },
   "github_interest": {
     "enabled": true,
@@ -121,11 +126,12 @@
     "token_env": "GITHUB_TOKEN",
     "limit": 8,
     "min_stars": 80,
-    "max_stars": 20000,
+    "max_stars": 12000,
     "pushed_within_days": 150,
-    "max_queries": 10,
+    "max_queries": 14,
     "per_query": 12,
     "profile_cache_path": "data/star_profile.json",
-    "profile_ttl_hours": 24
+    "profile_ttl_hours": 24,
+    "cooldown_days": 21
   }
 }

@@ -22,6 +22,33 @@ class StorageTests(unittest.TestCase):
                 self.assertEqual(removed, 1)
                 self.assertEqual(store.filter_new([item]), [item])
 
+    def test_interest_uses_cooldown_not_permanent_seen(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            database_path = os.path.join(tmp, "history.sqlite3")
+            item = NewsItem(
+                title="owner/gem",
+                url="https://github.com/owner/gem",
+                source="GitHub 兴趣推荐",
+                category="你可能感兴趣",
+            )
+            with NewsStore(database_path) as store:
+                store.mark_seen([item], recommended_on="2026-07-28")
+                self.assertEqual(
+                    store.filter_new([item], interest_cooldown_days=21),
+                    [],
+                )
+                # 新闻 seen 表不应吞掉兴趣仓
+                self.assertEqual(
+                    store.connection.execute(
+                        "SELECT COUNT(*) FROM seen_urls WHERE url LIKE '%owner/gem%'"
+                    ).fetchone()[0],
+                    0,
+                )
+                self.assertIn(
+                    "https://github.com/owner/gem",
+                    store.interest_urls_in_cooldown(21),
+                )
+
     def test_telegram_github_sent_cache_is_scoped_by_chat_and_normalizes_url(self):
         with tempfile.TemporaryDirectory() as tmp:
             database_path = os.path.join(tmp, "history.sqlite3")

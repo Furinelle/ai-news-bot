@@ -23,6 +23,7 @@ from .r2 import R2UploadResult, build_r2_key, create_presigned_get_url, upload_f
 from .rank import DEFAULT_INTEREST_LIMIT, select_report_items, select_report_items_with_fallback
 from .remote_push import send_remote_push
 from .render import default_date_label, render_fallback_report, render_html_report
+from .report_postprocess import enforce_section_caps, sanitize_github_sections
 from .star_profile import get_or_build_profile, resolve_github_token
 from .storage import NewsStore
 from .telegram_push import (
@@ -41,7 +42,13 @@ def warn(message: str) -> None:
     print(f"WARN: {message}", file=sys.stderr)
 
 
-def collect_items(sources: dict, max_items: int) -> list[NewsItem]:
+def collect_items(
+    sources: dict,
+    max_items: int,
+    *,
+    interest_exclude_urls: list[str] | None = None,
+    include_interest: bool = True,
+) -> list[NewsItem]:
     items: list[NewsItem] = []
 
     for rss in sources.get("rss", []):
@@ -77,12 +84,26 @@ def collect_items(sources: dict, max_items: int) -> list[NewsItem]:
     hn = sources.get("hacker_news", {})
     if hn.get("enabled", True):
         try:
-            items.extend(fetch_hacker_news(limit=int(hn.get("limit", 20))))
+            items.extend(
+                fetch_hacker_news(
+                    limit=int(hn.get("limit", 20)),
+                    min_score=int(hn.get("min_score", 40)),
+                )
+            )
         except Exception as exc:
             warn(f"skipping Hacker News: {exc}")
 
     items.extend(collect_github_trending_items(sources.get("github_trending", {})))
-    items.extend(collect_github_interest_items(sources.get("github_interest", {}), existing_items=items))
+    if include_interest:
+        exclude = list(interest_exclude_urls or [])
+        exclude.extend(item.url for item in items)
+        items.extend(
+            collect_github_interest_items(
+                sources.get("github_interest", {}),
+                existing_items=[],
+                extra_exclude_urls=exclude,
+            )
+        )
 
     interest_limit = int(sources.get("github_interest", {}).get("limit", DEFAULT_INTEREST_LIMIT))
     # 兴趣节单独占位，不挤占前三节的 max_items 配额
@@ -94,6 +115,7 @@ def collect_items(sources: dict, max_items: int) -> list[NewsItem]:
 def collect_github_interest_items(
     interest: dict,
     existing_items: list[NewsItem] | None = None,
+    extra_exclude_urls: list[str] | None = None,
 ) -> list[NewsItem]:
     if not interest:
         return []
@@ -101,6 +123,8 @@ def collect_github_interest_items(
         return []
 
     existing_urls = [item.url for item in (existing_items or [])]
+    if extra_exclude_urls:
+        existing_urls.extend(extra_exclude_urls)
     try:
         items = fetch_github_interest_items(interest, exclude_urls=existing_urls)
     except Exception as exc:
@@ -132,27 +156,29 @@ def collect_github_trending_items(github: dict) -> list[NewsItem]:
         return []
 
     items: list[NewsItem] = []
-    github_limit = int(github.get("limit", 10))
+    github_limit = int(github.get("limit", 25))
     since_values = _github_since_values(github)
-    for language in github.get("languages", [""]):
+    languages = github.get("languages") or ["", "python", "typescript", "rust"]
+    per_lang_cap = max(github_limit, 15)
+    for language in languages:
         language_items: list[NewsItem] = []
         for since in since_values:
-            if len(dedupe_items(language_items)) >= github_limit:
+            if len(dedupe_items(language_items)) >= per_lang_cap:
                 break
             try:
                 language_items.extend(
                     fetch_github_trending(
-                        language=language,
+                        language=str(language or ""),
                         since=since,
-                        limit=github_limit,
+                        limit=min(per_lang_cap, 25),
                     )
                 )
                 language_items = dedupe_items(language_items)
             except Exception as exc:
                 label = language or "all"
                 warn(f"skipping GitHub Trending source {label}/{since}: {exc}")
-        items.extend(language_items[:github_limit])
-    return items
+        items.extend(language_items[:per_lang_cap])
+    return dedupe_items(items)
 
 
 def _github_since_values(github: dict) -> list[str]:
@@ -179,14 +205,26 @@ def build_report(
 ) -> tuple[str, list[NewsItem]]:
     config = load_config(config_path)
     sources = load_sources(sources_path)
-    items = collect_items(sources, max_items=config.limits.max_items)
     date_label = default_date_label()
     report_date = report_date or datetime.now(ZoneInfo("Asia/Shanghai")).date()
     yesterday = report_date - timedelta(days=1)
     if persist_candidates is None:
         persist_candidates = mark_seen
 
+    interest_cfg = sources.get("github_interest", {})
+    interest_cooldown = int(interest_cfg.get("cooldown_days", 21))
+    trending_cooldown = int(sources.get("github_trending", {}).get("cooldown_days", 7))
+    interest_limit = int(interest_cfg.get("limit", DEFAULT_INTEREST_LIMIT))
+
     with NewsStore(config.database_path) as store:
+        cooled_interest = list(store.interest_urls_in_cooldown(interest_cooldown))
+        items = collect_items(
+            sources,
+            max_items=config.limits.max_items,
+            interest_exclude_urls=cooled_interest,
+            include_interest=True,
+        )
+
         bootstrap_candidates = store.candidate_count() == 0
         if persist_candidates:
             remember_collected_candidates(
@@ -201,23 +239,35 @@ def build_report(
             primary_candidates = [
                 item
                 for item in items
-                if discovery_days.get(normalize_url(item.url), report_date.isoformat()) == report_date.isoformat()
+                if discovery_days.get(normalize_url(item.url), report_date.isoformat())
+                == report_date.isoformat()
             ]
             primary_candidates.extend(store.candidates_discovered_on(report_date.isoformat()))
 
-        new_items = dedupe_items(store.filter_new(primary_candidates))
+        new_items = dedupe_items(
+            store.filter_new(
+                primary_candidates,
+                trending_cooldown_days=trending_cooldown,
+                interest_cooldown_days=interest_cooldown,
+            )
+        )
         yesterday_items = dedupe_items(
-            store.filter_new(store.candidates_discovered_on(yesterday.isoformat()))
+            store.filter_new(
+                store.candidates_discovered_on(yesterday.isoformat()),
+                trending_cooldown_days=trending_cooldown,
+                interest_cooldown_days=interest_cooldown,
+            )
         )
         combined = dedupe_items([*new_items, *yesterday_items])
         yesterday_items = combined[len(new_items) :]
-        interest_limit = int(sources.get("github_interest", {}).get("limit", DEFAULT_INTEREST_LIMIT))
         report_limit = config.limits.max_report_items + interest_limit
         selected = select_report_items_with_fallback(
             primary_items=new_items,
             fallback_items=yesterday_items,
             limit=report_limit,
             interest_limit=interest_limit,
+            # 兴趣节不从昨天补位，避免连播同一批
+            no_fallback_categories={INTEREST_CATEGORY},
         )
         if use_llm and selected:
             report = summarize_with_llm(
@@ -231,11 +281,46 @@ def build_report(
                 thinking_enabled=config.llm.thinking_enabled,
                 reasoning_effort=config.llm.reasoning_effort,
             )
+            report = sanitize_github_sections(report, selected)
+            report = enforce_section_caps(report)
         else:
             report = render_fallback_report(selected, date_label=date_label)
         if mark_seen:
-            store.mark_seen(selected)
+            store.mark_seen(selected, recommended_on=report_date.isoformat())
+        if persist_candidates:
+            _write_run_metrics(
+                database_path=config.database_path,
+                report_date=report_date,
+                selected=selected,
+                report=report,
+            )
     return report, selected
+
+
+def _write_run_metrics(
+    database_path: str,
+    report_date: date,
+    selected: list[NewsItem],
+    report: str,
+) -> None:
+    """写入当日运行指标到 data/，便于排查条数异常。"""
+    from collections import Counter
+
+    counts = Counter(item.category for item in selected)
+    metrics = {
+        "date": report_date.isoformat(),
+        "selected_total": len(selected),
+        "by_category": dict(counts),
+        "report_chars": len(report),
+        "has_interest_section": "你可能感兴趣" in report,
+        "has_trending_section": "GitHub Trending" in report,
+    }
+    path = Path(database_path).resolve().parent / f"metrics-{report_date.isoformat()}.json"
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(metrics, ensure_ascii=False, indent=2), encoding="utf-8")
+    except OSError as exc:
+        warn(f"failed to write run metrics: {exc}")
 
 
 def remember_collected_candidates(
@@ -298,8 +383,9 @@ def write_html_report_files(report: str, output_dir: str, slug: str) -> tuple[Pa
 
 def mark_items_seen(config_path: str, items: list[NewsItem]) -> None:
     config = load_config(config_path)
+    day = datetime.now(ZoneInfo("Asia/Shanghai")).strftime("%Y-%m-%d")
     with NewsStore(config.database_path) as store:
-        store.mark_seen(items)
+        store.mark_seen(items, recommended_on=day)
 
 
 def upload_report_files(
