@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.7.0] - 2026-07-31
+
+### 变更
+- **日报改为周报**：标题、LLM 提示、博客 alias、推送文案统一为「每周科技/AI周报」
+- systemd timer 改为 **每周一 08:00**（`OnCalendar=Mon *-*-* 08:00:00`）
+- 候选窗口由「今天 + 昨天」改为生成日往前 **7 天**；slug 使用 ISO 周（`2026-W31`）
+- GitHub Trending 默认 `since=weekly`；R2 `key_prefix` 默认 `weekly`
+- 兴趣簇由「按日轮转」改为周报汇总整周主题
+- Worker 默认服务 `/weekly/*`，并兼容历史 `/daily/*` 路径
+
+---
+
 ## [1.6.0] - 2026-07-28
 
 ### 移除

@@ -209,6 +209,23 @@ class NewsStore:
             """,
             (discovered_on,),
         ).fetchall()
+        return self._rows_to_items(rows)
+
+    def candidates_discovered_between(self, start_on: str, end_on: str) -> list[NewsItem]:
+        """返回 discovered_on 落在 [start_on, end_on]（含两端）的候选。"""
+        rows = self.connection.execute(
+            """
+            SELECT title, url, source, summary, category, published_at, score, tags_json
+            FROM news_candidates
+            WHERE discovered_on >= ? AND discovered_on <= ?
+            ORDER BY discovered_on DESC, rowid
+            """,
+            (start_on, end_on),
+        ).fetchall()
+        return self._rows_to_items(rows)
+
+    @staticmethod
+    def _rows_to_items(rows: list) -> list[NewsItem]:
         return [
             NewsItem(
                 title=title,

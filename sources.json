@@ -110,7 +110,7 @@
   },
   "github_trending": {
     "enabled": true,
-    "since": "daily",
+    "since": "weekly",
     "limit": 30,
     "languages": [
       "",

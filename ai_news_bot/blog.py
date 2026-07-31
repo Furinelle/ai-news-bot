@@ -23,8 +23,8 @@ def publish_report_to_blog(
     report: str,
     slug: str,
     selected_count: int,
-    title_prefix: str = "每日科技 / AI 日报",
-    tags: tuple[str, ...] | list[str] = ("每日新闻", "AI", "科技"),
+    title_prefix: str = "每周科技 / AI 周报",
+    tags: tuple[str, ...] | list[str] = ("每周新闻", "AI", "科技"),
     timeout_seconds: float = 30,
     client: Any | None = None,
 ) -> BlogPublishResult:
@@ -40,7 +40,7 @@ def publish_report_to_blog(
 
         client = httpx.Client(timeout=timeout_seconds)
 
-    alias = f"daily-news-{slug}"
+    alias = f"weekly-news-{slug}"
     public_url = f"{root}/feed/{alias}"
     try:
         login_response = client.post(
@@ -63,7 +63,7 @@ def publish_report_to_blog(
                 "title": f"{title_prefix} · {slug}",
                 "alias": alias,
                 "content": report,
-                "summary": f"{slug} 每日科技与 AI 新闻精选，共 {selected_count} 条。",
+                "summary": f"{slug} 每周科技与 AI 新闻精选，共 {selected_count} 条。",
                 "tags": list(tags),
                 "listed": True,
                 "draft": False,

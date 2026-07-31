@@ -1,5 +1,5 @@
 [Unit]
-Description=AI News Bot daily report
+Description=AI News Bot weekly report
 Wants=network-online.target
 After=network-online.target
 

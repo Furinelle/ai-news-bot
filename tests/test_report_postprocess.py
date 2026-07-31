@@ -23,7 +23,7 @@ class ReportPostprocessTests(unittest.TestCase):
     def test_sanitize_github_sections_fixes_source_tail_and_fluff(self):
         report = "\n".join(
             [
-                "# 📡 Furina · 每日科技/AI日报",
+                "# 📡 Furina · 每周科技/AI周报",
                 "2026年7月28日",
                 "",
                 "## 📦 GitHub Trending",

@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -22,7 +22,13 @@ from .pushplus import send_pushplus
 from .r2 import R2UploadResult, build_r2_key, create_presigned_get_url, upload_file_to_r2
 from .rank import DEFAULT_INTEREST_LIMIT, select_report_items, select_report_items_with_fallback
 from .remote_push import send_remote_push
-from .render import default_date_label, render_fallback_report, render_html_report
+from .render import (
+    WEEKLY_LOOKBACK_DAYS,
+    default_date_label,
+    render_fallback_report,
+    render_html_report,
+    week_window,
+)
 from .report_postprocess import enforce_section_caps, sanitize_github_sections
 from .star_profile import get_or_build_profile, resolve_github_token
 from .storage import NewsStore
@@ -182,7 +188,7 @@ def collect_github_trending_items(github: dict) -> list[NewsItem]:
 
 
 def _github_since_values(github: dict) -> list[str]:
-    raw_since = github.get("since", "daily")
+    raw_since = github.get("since", "weekly")
     if isinstance(raw_since, list):
         values = [str(value) for value in raw_since]
     else:
@@ -192,7 +198,7 @@ def _github_since_values(github: dict) -> list[str]:
     for value in values:
         if value and value not in result:
             result.append(value)
-    return result or ["daily"]
+    return result or ["weekly"]
 
 
 def build_report(
@@ -205,9 +211,9 @@ def build_report(
 ) -> tuple[str, list[NewsItem]]:
     config = load_config(config_path)
     sources = load_sources(sources_path)
-    date_label = default_date_label()
     report_date = report_date or datetime.now(ZoneInfo("Asia/Shanghai")).date()
-    yesterday = report_date - timedelta(days=1)
+    window_start, window_end = week_window(report_date, lookback_days=WEEKLY_LOOKBACK_DAYS)
+    date_label = default_date_label(report_date, lookback_days=WEEKLY_LOOKBACK_DAYS)
     if persist_candidates is None:
         persist_candidates = mark_seen
 
@@ -233,40 +239,61 @@ def build_report(
                 report_date=report_date,
                 infer_published_date=bootstrap_candidates,
             )
-            primary_candidates = store.candidates_discovered_on(report_date.isoformat())
+            week_candidates = store.candidates_discovered_between(
+                window_start.isoformat(),
+                window_end.isoformat(),
+            )
         else:
             discovery_days = store.candidate_discovery_days(items)
-            primary_candidates = [
+            week_candidates = [
                 item
                 for item in items
-                if discovery_days.get(normalize_url(item.url), report_date.isoformat())
-                == report_date.isoformat()
+                if window_start.isoformat()
+                <= discovery_days.get(normalize_url(item.url), report_date.isoformat())
+                <= window_end.isoformat()
             ]
-            primary_candidates.extend(store.candidates_discovered_on(report_date.isoformat()))
+            week_candidates.extend(
+                store.candidates_discovered_between(
+                    window_start.isoformat(),
+                    window_end.isoformat(),
+                )
+            )
 
-        new_items = dedupe_items(
+        # 本周新抓取优先，窗口内更早的未推送条目作补位
+        latest_day_items = [
+            item
+            for item in week_candidates
+            if _item_discovery_day(store, item, report_date) == report_date.isoformat()
+        ]
+        if persist_candidates:
+            latest_day_items = store.candidates_discovered_on(report_date.isoformat())
+
+        primary_items = dedupe_items(
             store.filter_new(
-                primary_candidates,
+                latest_day_items if latest_day_items else week_candidates,
                 trending_cooldown_days=trending_cooldown,
                 interest_cooldown_days=interest_cooldown,
             )
         )
-        yesterday_items = dedupe_items(
+        fallback_pool = [
+            item
+            for item in week_candidates
+            if normalize_url(item.url) not in {normalize_url(x.url) for x in primary_items}
+        ]
+        fallback_items = dedupe_items(
             store.filter_new(
-                store.candidates_discovered_on(yesterday.isoformat()),
+                fallback_pool,
                 trending_cooldown_days=trending_cooldown,
                 interest_cooldown_days=interest_cooldown,
             )
         )
-        combined = dedupe_items([*new_items, *yesterday_items])
-        yesterday_items = combined[len(new_items) :]
         report_limit = config.limits.max_report_items + interest_limit
         selected = select_report_items_with_fallback(
-            primary_items=new_items,
-            fallback_items=yesterday_items,
+            primary_items=primary_items,
+            fallback_items=fallback_items,
             limit=report_limit,
             interest_limit=interest_limit,
-            # 兴趣节不从昨天补位，避免连播同一批
+            # 兴趣节不从窗口内旧批次补位，避免连播同一批
             no_fallback_categories={INTEREST_CATEGORY},
         )
         if use_llm and selected:
@@ -297,13 +324,18 @@ def build_report(
     return report, selected
 
 
+def _item_discovery_day(store: NewsStore, item: NewsItem, report_date: date) -> str:
+    days = store.candidate_discovery_days([item])
+    return days.get(normalize_url(item.url), report_date.isoformat())
+
+
 def _write_run_metrics(
     database_path: str,
     report_date: date,
     selected: list[NewsItem],
     report: str,
 ) -> None:
-    """写入当日运行指标到 data/，便于排查条数异常。"""
+    """写入当周运行指标到 data/，便于排查条数异常。"""
     from collections import Counter
 
     counts = Counter(item.category for item in selected)
@@ -356,8 +388,11 @@ def parse_published_date(value: str | None) -> date | None:
     return parsed.astimezone(ZoneInfo("Asia/Shanghai")).date()
 
 
-def default_report_slug() -> str:
-    return datetime.now(ZoneInfo("Asia/Shanghai")).strftime("%Y-%m-%d")
+def default_report_slug(report_date: date | None = None) -> str:
+    """ISO 周年份周序号，如 2026-W31。"""
+    day = report_date or datetime.now(ZoneInfo("Asia/Shanghai")).date()
+    iso = day.isocalendar()
+    return f"{iso.year}-W{iso.week:02d}"
 
 
 def write_report_files(report: str, output_dir: str, slug: str, latest_name: str) -> tuple[Path, Path]:
@@ -408,13 +443,13 @@ def upload_report_files(
     if not config.r2.secret_access_key:
         raise ConfigError("R2 secret access key is required when R2 upload is enabled")
 
-    daily_key = build_r2_key(config.r2.key_prefix, f"{slug}.md")
+    report_key = build_r2_key(config.r2.key_prefix, f"{slug}.md")
     latest_key = build_r2_key(config.r2.key_prefix, latest_path.name)
     uploads = [
         upload_file_to_r2(
             path=report_path,
             bucket=config.r2.bucket,
-            key=daily_key,
+            key=report_key,
             endpoint_url=config.r2.endpoint_url,
             access_key_id=config.r2.access_key_id,
             secret_access_key=config.r2.secret_access_key,
@@ -433,14 +468,14 @@ def upload_report_files(
         ),
     ]
     if html_report_path and html_latest_path:
-        html_daily_key = build_r2_key(config.r2.key_prefix, f"{slug}.html")
+        html_report_key = build_r2_key(config.r2.key_prefix, f"{slug}.html")
         html_latest_key = build_r2_key(config.r2.key_prefix, "latest.html")
         uploads.extend(
             [
                 upload_file_to_r2(
                     path=html_report_path,
                     bucket=config.r2.bucket,
-                    key=html_daily_key,
+                    key=html_report_key,
                     endpoint_url=config.r2.endpoint_url,
                     access_key_id=config.r2.access_key_id,
                     secret_access_key=config.r2.secret_access_key,
@@ -462,19 +497,19 @@ def upload_report_files(
         if not config.r2.public_base_url:
             html_url = create_presigned_get_url(
                 bucket=config.r2.bucket,
-                key=html_daily_key,
+                key=html_report_key,
                 endpoint_url=config.r2.endpoint_url,
                 access_key_id=config.r2.access_key_id,
                 secret_access_key=config.r2.secret_access_key,
                 expires_seconds=config.r2.presigned_url_expires_seconds,
             )
-            uploads[-2] = R2UploadResult(bucket=config.r2.bucket, key=html_daily_key, url=html_url)
+            uploads[-2] = R2UploadResult(bucket=config.r2.bucket, key=html_report_key, url=html_url)
     return uploads
 
 
 def build_push_body(date_label: str, selected_count: int, report_url: str) -> str:
     lines = [
-        f"{date_label} 科技/AI日报已发布到博客。",
+        f"{date_label} 科技/AI周报已发布到博客。",
         f"入选新闻：{selected_count} 条。",
     ]
     if report_url:
@@ -531,7 +566,7 @@ def summarize_blog_result(result: BlogPublishResult | None) -> dict[str, object]
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Generate and push a daily technology/AI news report.")
+    parser = argparse.ArgumentParser(description="Generate and push a weekly technology/AI news report.")
     parser.add_argument("--config", default="config.json", help="Path to config JSON.")
     parser.add_argument("--sources", default="sources.json", help="Path to sources JSON.")
     parser.add_argument("--dry-run", action="store_true", help="Print report without sending it.")
@@ -544,13 +579,15 @@ def main() -> int:
 
     try:
         config = load_config(args.config)
-        slug = default_report_slug()
+        report_day = datetime.now(ZoneInfo("Asia/Shanghai")).date()
+        slug = default_report_slug(report_day)
         report, selected = build_report(
             args.config,
             args.sources,
             use_llm=not args.no_llm,
             mark_seen=False,
             persist_candidates=args.send,
+            report_date=report_day,
         )
 
         if args.dry_run or not args.send:
@@ -620,7 +657,7 @@ def main() -> int:
             api_key=config.scripting_push.api_key,
             endpoint=config.scripting_push.endpoint,
             title=config.scripting_push.title,
-            body=build_push_body(default_date_label(), len(selected), report_url),
+            body=build_push_body(default_date_label(report_day), len(selected), report_url),
             action=report_url,
         )
         pushplus_result = None
@@ -629,7 +666,7 @@ def main() -> int:
                 raise ConfigError("pushplus token is required when --send-pushplus is used")
             pushplus_result = send_pushplus(
                 token=config.pushplus.token,
-                title="科技与AI日报",
+                title="科技与AI周报",
                 content=report,
                 channel=config.pushplus.channel,
                 template=config.pushplus.template,

@@ -20,10 +20,10 @@ from ai_news_bot.storage import NewsStore
 
 class MainTests(unittest.TestCase):
     def test_remote_push_body_contains_blog_link(self):
-        body = build_push_body("2026年7月18日", 45, "https://blog.example.com/feed/daily-news-2026-07-18")
+        body = build_push_body("2026年7月12日–7月18日", 45, "https://blog.example.com/feed/weekly-news-2026-W29")
 
-        self.assertIn("已发布到博客", body)
-        self.assertIn("https://blog.example.com/feed/daily-news-2026-07-18", body)
+        self.assertIn("周报已发布到博客", body)
+        self.assertIn("https://blog.example.com/feed/weekly-news-2026-W29", body)
 
     def test_collect_items_balances_categories_when_applying_max_items(self):
         sources = {
@@ -108,9 +108,9 @@ class MainTests(unittest.TestCase):
             "hacker_news": {"enabled": False},
             "github_trending": {
                 "enabled": True,
-                "since": "daily",
-                "extra_since": ["weekly", "monthly"],
-                "limit": 50,
+                "since": "weekly",
+                "extra_since": ["monthly"],
+                "limit": 40,
                 "languages": [""],
             },
         }
@@ -119,7 +119,7 @@ class MainTests(unittest.TestCase):
         try:
             def fake_github(language, since, limit, **_k):
                 calls.append((language, since, limit))
-                offset = {"daily": 0, "weekly": 20, "monthly": 40}[since]
+                offset = {"weekly": 0, "monthly": 20}[since]
                 return [
                     NewsItem(
                         title=f"Repo {offset + index}",
@@ -136,8 +136,8 @@ class MainTests(unittest.TestCase):
             items = main_module.collect_items(sources, max_items=150)
 
             github_items = [item for item in items if item.category == "GitHub Trending"]
-            self.assertEqual(len(github_items), 50)
-            self.assertEqual([call[1] for call in calls], ["daily", "weekly", "monthly"])
+            self.assertEqual(len(github_items), 40)
+            self.assertEqual([call[1] for call in calls], ["weekly", "monthly"])
             self.assertTrue(all(call[2] == 25 for call in calls))  # per-request cap
         finally:
             main_module.fetch_github_trending = original_github
@@ -185,7 +185,7 @@ class MainTests(unittest.TestCase):
                 os.environ.clear()
                 os.environ.update(old_env)
 
-    def test_build_report_prefers_today_then_only_yesterdays_unsent_candidates(self):
+    def test_build_report_prefers_latest_day_then_week_window_unsent_candidates(self):
         with tempfile.TemporaryDirectory() as tmp:
             config_path = os.path.join(tmp, "config.json")
             sources_path = os.path.join(tmp, "sources.json")
@@ -206,43 +206,44 @@ class MainTests(unittest.TestCase):
             with open(sources_path, "w", encoding="utf-8") as handle:
                 json.dump({}, handle)
 
-            yesterday_unsent = NewsItem(
-                title="Yesterday unsent",
-                url="https://example.com/yesterday-unsent",
-                source="Yesterday",
+            midweek_unsent = NewsItem(
+                title="Midweek unsent",
+                url="https://example.com/midweek-unsent",
+                source="Midweek",
                 category="AI动态",
             )
-            yesterday_sent = NewsItem(
-                title="Yesterday already sent",
-                url="https://example.com/yesterday-sent",
-                source="Yesterday",
+            midweek_sent = NewsItem(
+                title="Midweek already sent",
+                url="https://example.com/midweek-sent",
+                source="Midweek",
                 category="AI动态",
             )
-            two_days_old = NewsItem(
-                title="Two days old",
-                url="https://example.com/two-days-old",
+            outside_window = NewsItem(
+                title="Outside window",
+                url="https://example.com/outside-window",
                 source="Old",
                 category="AI动态",
             )
-            today_fresh = NewsItem(
-                title="Today fresh",
-                url="https://example.com/today-fresh",
+            week_end_fresh = NewsItem(
+                title="Week end fresh",
+                url="https://example.com/week-end-fresh",
                 source="Today",
                 category="科技热点",
             )
             with NewsStore(database_path) as store:
-                store.remember_candidates([two_days_old], discovered_on="2026-07-11")
+                # report_date=2026-07-13 的 7 天窗口是 07-07..07-13；07-05 在窗外
+                store.remember_candidates([outside_window], discovered_on="2026-07-05")
                 store.remember_candidates(
-                    [yesterday_unsent, yesterday_sent],
-                    discovered_on="2026-07-12",
+                    [midweek_unsent, midweek_sent],
+                    discovered_on="2026-07-10",
                 )
-                store.mark_seen([yesterday_sent])
+                store.mark_seen([midweek_sent])
 
             old_env = os.environ.copy()
             original_collect = main_module.collect_items
             try:
                 os.environ["TEST_LLM_KEY"] = "llm-secret"
-                main_module.collect_items = lambda _sources, max_items, **_k: [today_fresh]
+                main_module.collect_items = lambda _sources, max_items, **_k: [week_end_fresh]
 
                 _report, selected = build_report(
                     config_path,
@@ -253,7 +254,11 @@ class MainTests(unittest.TestCase):
                     report_date=date(2026, 7, 13),
                 )
 
-                self.assertEqual([item.title for item in selected], ["Today fresh", "Yesterday unsent"])
+                titles = [item.title for item in selected]
+                self.assertIn("Week end fresh", titles)
+                self.assertIn("Midweek unsent", titles)
+                self.assertNotIn("Midweek already sent", titles)
+                self.assertNotIn("Outside window", titles)
             finally:
                 main_module.collect_items = original_collect
                 os.environ.clear()

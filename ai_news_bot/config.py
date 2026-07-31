@@ -34,7 +34,7 @@ class ScriptingPushConfig:
     enabled: bool = False
     api_key: str = ""
     endpoint: str = "https://push.scripting.fun/push"
-    title: str = "Furina · 每日科技/AI日报"
+    title: str = "Furina · 每周科技/AI周报"
 
 
 @dataclass(frozen=True)
@@ -52,8 +52,8 @@ class BlogConfig:
     base_url: str = ""
     username: str = ""
     password: str = ""
-    title_prefix: str = "每日科技 / AI 日报"
-    tags: tuple[str, ...] = ("每日新闻", "AI", "科技")
+    title_prefix: str = "每周科技 / AI 周报"
+    tags: tuple[str, ...] = ("每周新闻", "AI", "科技")
 
 
 @dataclass(frozen=True)
@@ -63,7 +63,7 @@ class R2Config:
     endpoint_url: str = ""
     access_key_id: str = ""
     secret_access_key: str = ""
-    key_prefix: str = "daily"
+    key_prefix: str = "weekly"
     public_base_url: str = ""
     presigned_url_expires_seconds: int = 604800
     content_type: str = "text/markdown; charset=utf-8"
@@ -150,7 +150,7 @@ def load_config(path: str | Path) -> AppConfig:
         enabled=scripting_push_enabled,
         api_key=_optional_env(scripting_push_api_key_env),
         endpoint=str(scripting_push_raw.get("endpoint", "https://push.scripting.fun/push")),
-        title=str(scripting_push_raw.get("title", "Furina · 每日科技/AI日报")),
+        title=str(scripting_push_raw.get("title", "Furina · 每周科技/AI周报")),
     )
 
     telegram = TelegramConfig(
@@ -166,8 +166,8 @@ def load_config(path: str | Path) -> AppConfig:
         base_url=str(blog_raw.get("base_url", "")).strip().rstrip("/"),
         username=_optional_env(str(blog_raw.get("username_env", "BLOG_ADMIN_USERNAME"))),
         password=_optional_env(str(blog_raw.get("password_env", "BLOG_ADMIN_PASSWORD"))),
-        title_prefix=str(blog_raw.get("title_prefix", "每日科技 / AI 日报")).strip(),
-        tags=tuple(str(tag).strip() for tag in blog_raw.get("tags", ["每日新闻", "AI", "科技"]) if str(tag).strip()),
+        title_prefix=str(blog_raw.get("title_prefix", "每周科技 / AI 周报")).strip(),
+        tags=tuple(str(tag).strip() for tag in blog_raw.get("tags", ["每周新闻", "AI", "科技"]) if str(tag).strip()),
     )
 
     r2_enabled = bool(r2_raw.get("enabled", False))
@@ -181,7 +181,7 @@ def load_config(path: str | Path) -> AppConfig:
         endpoint_url=endpoint_url,
         access_key_id=_optional_env(str(r2_raw.get("access_key_id_env", "R2_ACCESS_KEY_ID"))),
         secret_access_key=_optional_env(str(r2_raw.get("secret_access_key_env", "R2_SECRET_ACCESS_KEY"))),
-        key_prefix=str(r2_raw.get("key_prefix", "daily")).strip().strip("/"),
+        key_prefix=str(r2_raw.get("key_prefix", "weekly")).strip().strip("/"),
         public_base_url=str(r2_raw.get("public_base_url", "")).strip().rstrip("/"),
         presigned_url_expires_seconds=int(r2_raw.get("presigned_url_expires_seconds", 604800)),
         content_type=str(r2_raw.get("content_type", "text/markdown; charset=utf-8")),

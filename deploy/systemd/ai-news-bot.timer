@@ -1,8 +1,9 @@
 [Unit]
-Description=Run AI News Bot daily
+Description=Run AI News Bot weekly
 
 [Timer]
-OnCalendar=*-*-* 08:00:00
+# 每周一 08:00（系统时区建议 Asia/Shanghai）
+OnCalendar=Mon *-*-* 08:00:00
 Persistent=true
 Unit=ai-news-bot.service
 

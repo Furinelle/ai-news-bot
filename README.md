@@ -1,17 +1,18 @@
-# AI News Bot — VPS 每日科技/AI日报
+# AI News Bot — VPS 每周科技/AI周报
 
-每日科技/AI日报服务。抓取 RSS、Hacker News、GitHub Trending，并结合你的 GitHub star 图谱做个性化仓库推荐，去重排序后交给 OpenAI-compatible LLM 生成结构化中文日报。通过 CLI + systemd timer 在 VPS 上每日运行：生成日报、发布到 Rin 博客、保存本地 Markdown、上传 Cloudflare R2、Scripting Remote Push 推 iPhone，并按仓库向 Telegram 频道推送 GitHub 条目。
+每周科技/AI周报服务。抓取 RSS、Hacker News、GitHub Trending，并结合你的 GitHub star 图谱做个性化仓库推荐，去重排序后交给 OpenAI-compatible LLM 生成结构化中文周报。通过 CLI + systemd timer 在 VPS 上每周运行：生成周报、发布到 Rin 博客、保存本地 Markdown、上传 Cloudflare R2、Scripting Remote Push 推 iPhone，并按仓库向 Telegram 频道推送 GitHub 条目。
 
 ## 功能
 
 - VPS one-shot：`python -m ai_news_bot.main --send`
-- 每日定时：systemd timer 默认每天 `08:00`（Asia/Shanghai）
-- 日报归档：`reports/YYYY-MM-DD.md` / `.html` 与 latest 副本
-- R2 上传 + Rin 博客幂等发布
+- 每周定时：systemd timer 默认**每周一** `08:00`（Asia/Shanghai）
+- 周报归档：`reports/YYYY-Www.md` / `.html`（ISO 周，如 `2026-W31`）与 latest 副本
+- 候选窗口：生成日往前 **7 天**（含当日）的未推送条目
+- R2 上传 + Rin 博客幂等发布（alias：`weekly-news-{slug}`）
 - iPhone 通知：Scripting Remote Push，点击打开博客链接
 - Telegram：推送 GitHub Trending + 你可能感兴趣仓库（逐条，频道行为保持不变）
-- **⭐ 你可能感兴趣**：star 画像 + Search，按星期轮转兴趣簇，**21 天冷却**避免连播
-- **GitHub Trending**：解析今日 star、多语言抓取、**7 天冷却**、HTTP 重试
+- **⭐ 你可能感兴趣**：star 画像 + Search，周报汇总多兴趣簇，**21 天冷却**避免连播
+- **GitHub Trending**：默认 `since=weekly`，解析本周 star、多语言抓取、**7 天冷却**、HTTP 重试
 - **HN**：最低分过滤、AI 关键词分流到「AI动态」、每节 HN 条数上限
 - LLM 生成后后处理：校正 GitHub 节格式、去掉错误「来源」尾巴、过滤空话
 - 运行指标：`data/metrics-YYYY-MM-DD.json`（仅 `--send` 持久化时写入）
@@ -61,6 +62,22 @@ systemctl daemon-reload
 systemctl enable --now ai-news-bot.timer
 ```
 
+从日报升级到周报时，额外确认：
+
+```bash
+# 若本地 config.json 仍写着旧默认，请改：
+# scripting_push.title → Furina · 每周科技/AI周报
+# blog.title_prefix / tags → 每周科技 / AI 周报、每周新闻
+# r2.key_prefix → weekly
+# sources.json github_trending.since → weekly
+
+cp deploy/systemd/ai-news-bot.timer /etc/systemd/system/ai-news-bot.timer
+cp deploy/systemd/ai-news-bot.service /etc/systemd/system/ai-news-bot.service
+systemctl daemon-reload
+systemctl restart ai-news-bot.timer
+systemctl list-timers ai-news-bot.timer
+```
+
 更新代码：
 
 ```bash
@@ -79,6 +96,7 @@ git pull
 | `rss` / `json_apis` | 常规资讯源 |
 | `hacker_news.min_score` | HN 最低分数（默认 40） |
 | `github_trending.languages` | 如 `["", "python", "typescript", "rust"]` |
+| `github_trending.since` | 默认 `weekly` |
 | `github_trending.cooldown_days` | Trending 冷却（默认 7） |
 | `github_interest.cooldown_days` | 兴趣推荐冷却（默认 21） |
 | `github_interest.max_stars` | 兴趣仓 star 上限（默认 12000，偏中腰部） |

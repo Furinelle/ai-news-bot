@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-# 日报第四节：个性化 GitHub 兴趣推荐
+# 周报第四节：个性化 GitHub 兴趣推荐
 INTEREST_CATEGORY = "你可能感兴趣"
 
 

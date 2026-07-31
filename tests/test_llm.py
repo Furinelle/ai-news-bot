@@ -24,7 +24,7 @@ class LlmTests(unittest.TestCase):
 
         self.assertEqual(payload["model"], "summary-model")
         self.assertIn("2026年5月9日", joined)
-        self.assertIn("必须原样使用这个日期", joined)
+        self.assertIn("必须原样使用这个周期/日期", joined)
         self.assertIn("不得编造", joined)
         self.assertIn("翻译或改写为中文", joined)
         self.assertIn("发生了什么", joined)

@@ -80,9 +80,9 @@ GENERIC_PENALTY = (
     (r"\btemplate\b", 2.0),
 )
 
-# 兴趣簇按星期轮转，避免天天 MCP/记忆全家桶
+# 兴趣簇池：周报每次覆盖多簇，避免只命中周一主题
 CLUSTER_ROTATION: dict[int, tuple[str, ...]] = {
-    # Monday=0
+    # Monday=0（保留映射便于测试与未来扩展）
     0: (
         "mcp server (memory OR context OR code)",
         "agent memory OR long-term memory llm",
@@ -128,10 +128,17 @@ ALWAYS_ON_CLUSTERS = (
 
 
 def clusters_for_today(now: datetime | None = None) -> tuple[str, ...]:
-    current = now or datetime.now(ZoneInfo("Asia/Shanghai"))
-    weekday = current.weekday()
-    rotated = CLUSTER_ROTATION.get(weekday, CLUSTER_ROTATION[0])
-    return rotated + ALWAYS_ON_CLUSTERS
+    """周报兴趣簇：汇总整周主题并去重，再拼上 always-on。"""
+    _ = now or datetime.now(ZoneInfo("Asia/Shanghai"))
+    ordered: list[str] = []
+    for day in range(7):
+        for cluster in CLUSTER_ROTATION.get(day, ()):
+            if cluster not in ordered:
+                ordered.append(cluster)
+    for cluster in ALWAYS_ON_CLUSTERS:
+        if cluster not in ordered:
+            ordered.append(cluster)
+    return tuple(ordered)
 
 
 def build_search_queries(
@@ -144,7 +151,7 @@ def build_search_queries(
     max_queries: int = 14,
     now: datetime | None = None,
 ) -> list[str]:
-    """构造 GitHub 搜索查询：当日兴趣簇轮转 + 画像，偏中腰部活跃非 fork。"""
+    """构造 GitHub 搜索查询：周报兴趣簇 + 画像，偏中腰部活跃非 fork。"""
     pushed = iso_days_ago(pushed_within_days)
     created = iso_days_ago(created_within_days)
     star_range = f"stars:{min_stars}..{max_stars}"

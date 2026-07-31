@@ -35,15 +35,11 @@ class GitHubInterestTests(unittest.TestCase):
         from datetime import datetime
         from zoneinfo import ZoneInfo
 
-        # 周二轮转簇包含 telegram / pixiv
+        # 周报汇总整周兴趣簇，应同时覆盖 mcp / telegram / pixiv 等主题
         tuesday = datetime(2026, 7, 28, tzinfo=ZoneInfo("Asia/Shanghai"))
         queries = build_search_queries(profile, max_queries=14, now=tuesday)
         self.assertTrue(queries)
-        self.assertTrue(
-            any("mcp" in query for query in queries)
-            or any("topic:claude-code" in query for query in queries)
-            or any("telegram" in query for query in queries)
-        )
+        self.assertTrue(any("mcp" in query for query in queries))
         self.assertTrue(any("telegram" in query or "pixiv" in query for query in queries))
         self.assertTrue(all("fork:false" in query for query in queries))
 

@@ -17,7 +17,7 @@
     "enabled": true,
     "api_key_env": "SCRIPTING_PUSH_API_KEY",
     "endpoint": "https://push.scripting.fun/push",
-    "title": "Furina · 每日科技/AI日报"
+    "title": "Furina · 每周科技/AI周报"
   },
   "telegram": {
     "enabled": true,
@@ -31,8 +31,8 @@
     "base_url": "https://blog.example.com",
     "username_env": "BLOG_ADMIN_USERNAME",
     "password_env": "BLOG_ADMIN_PASSWORD",
-    "title_prefix": "每日科技 / AI 日报",
-    "tags": ["每日新闻", "AI", "科技"]
+    "title_prefix": "每周科技 / AI 周报",
+    "tags": ["每周新闻", "AI", "科技"]
   },
   "r2": {
     "enabled": true,
@@ -40,7 +40,7 @@
     "account_id_env": "CLOUDFLARE_ACCOUNT_ID",
     "access_key_id_env": "R2_ACCESS_KEY_ID",
     "secret_access_key_env": "R2_SECRET_ACCESS_KEY",
-    "key_prefix": "daily",
+    "key_prefix": "weekly",
     "public_base_url": "https://example.com",
     "presigned_url_expires_seconds": 604800,
     "content_type": "text/markdown; charset=utf-8"
@@ -50,8 +50,8 @@
     "latest_name": "latest.md"
   },
   "limits": {
-    "max_items": 150,
-    "max_report_items": 45
+    "max_items": 200,
+    "max_report_items": 53
   },
   "database_path": "data/news_history.sqlite3"
 }

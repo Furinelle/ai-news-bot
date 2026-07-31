@@ -86,9 +86,8 @@
   },
   "github_trending": {
     "enabled": true,
-    "since": "daily",
+    "since": "weekly",
     "extra_since": [
-      "weekly",
       "monthly"
     ],
     "limit": 30,

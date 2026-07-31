@@ -30,7 +30,7 @@ class FakeClient:
 
 
 class BlogPublishTests(unittest.TestCase):
-    def test_publish_logs_in_and_creates_public_daily_post(self):
+    def test_publish_logs_in_and_creates_public_weekly_post(self):
         client = FakeClient(
             [
                 FakeResponse(data={"success": True, "token": "jwt-token"}),
@@ -42,33 +42,33 @@ class BlogPublishTests(unittest.TestCase):
             base_url="https://blog.example.com/",
             username="furina",
             password="secret",
-            report="# 每日新闻\n\n正文",
-            slug="2026-07-18",
+            report="# 每周新闻\n\n正文",
+            slug="2026-W29",
             selected_count=45,
             client=client,
         )
 
         self.assertEqual(result.feed_id, 42)
-        self.assertEqual(result.alias, "daily-news-2026-07-18")
-        self.assertEqual(result.url, "https://blog.example.com/feed/daily-news-2026-07-18")
+        self.assertEqual(result.alias, "weekly-news-2026-W29")
+        self.assertEqual(result.url, "https://blog.example.com/feed/weekly-news-2026-W29")
         self.assertTrue(result.created)
         self.assertEqual(client.calls[0][1], "https://blog.example.com/api/auth/login")
         create_call = client.calls[1]
         self.assertEqual(create_call[1], "https://blog.example.com/api/feed")
         self.assertEqual(create_call[2]["headers"]["Authorization"], "Bearer jwt-token")
-        self.assertEqual(create_call[2]["json"]["title"], "每日科技 / AI 日报 · 2026-07-18")
-        self.assertEqual(create_call[2]["json"]["alias"], "daily-news-2026-07-18")
-        self.assertEqual(create_call[2]["json"]["content"], "# 每日新闻\n\n正文")
-        self.assertEqual(create_call[2]["json"]["tags"], ["每日新闻", "AI", "科技"])
+        self.assertEqual(create_call[2]["json"]["title"], "每周科技 / AI 周报 · 2026-W29")
+        self.assertEqual(create_call[2]["json"]["alias"], "weekly-news-2026-W29")
+        self.assertEqual(create_call[2]["json"]["content"], "# 每周新闻\n\n正文")
+        self.assertEqual(create_call[2]["json"]["tags"], ["每周新闻", "AI", "科技"])
         self.assertFalse(create_call[2]["json"]["draft"])
         self.assertTrue(create_call[2]["json"]["listed"])
 
-    def test_existing_daily_post_is_idempotent(self):
+    def test_existing_weekly_post_is_idempotent(self):
         client = FakeClient(
             [
                 FakeResponse(data={"success": True, "token": "jwt-token"}),
                 FakeResponse(status_code=400, text="Content already exists"),
-                FakeResponse(data={"id": 12, "alias": "daily-news-2026-07-18"}),
+                FakeResponse(data={"id": 12, "alias": "weekly-news-2026-W29"}),
             ]
         )
 
@@ -77,14 +77,14 @@ class BlogPublishTests(unittest.TestCase):
             username="furina",
             password="secret",
             report="same report",
-            slug="2026-07-18",
+            slug="2026-W29",
             selected_count=45,
             client=client,
         )
 
         self.assertEqual(result.feed_id, 12)
         self.assertFalse(result.created)
-        self.assertEqual(client.calls[2][0:2], ("GET", "https://blog.example.com/api/feed/daily-news-2026-07-18"))
+        self.assertEqual(client.calls[2][0:2], ("GET", "https://blog.example.com/api/feed/weekly-news-2026-W29"))
 
     def test_login_failure_does_not_attempt_publish(self):
         client = FakeClient([FakeResponse(status_code=403, text="Invalid credentials")])

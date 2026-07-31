@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import datetime
+from datetime import date, datetime, timedelta
 import html
 import re
+from zoneinfo import ZoneInfo
 
 from .models import NewsItem
 
@@ -16,15 +17,32 @@ SECTION_HEADINGS = {
     "你可能感兴趣": "## ⭐ 你可能感兴趣",
 }
 GITHUB_LINK_SECTIONS = {"GitHub Trending", "你可能感兴趣"}
+REPORT_TITLE = "Furina · 每周科技/AI周报"
+REPORT_HEADING = f"# 📡 {REPORT_TITLE}"
+# 周报覆盖天数（含生成日）
+WEEKLY_LOOKBACK_DAYS = 7
 
 
 def strip_markdown_emphasis(text: str) -> str:
     return text.replace("**", "").replace("__", "")
 
 
-def default_date_label() -> str:
-    now = datetime.now()
-    return f"{now.year}年{now.month}月{now.day}日"
+def week_window(report_date: date | None = None, lookback_days: int = WEEKLY_LOOKBACK_DAYS) -> tuple[date, date]:
+    end = report_date or datetime.now(ZoneInfo("Asia/Shanghai")).date()
+    start = end - timedelta(days=max(lookback_days, 1) - 1)
+    return start, end
+
+
+def default_date_label(report_date: date | None = None, lookback_days: int = WEEKLY_LOOKBACK_DAYS) -> str:
+    """周报日期区间，如 2026年7月25日–7月31日。"""
+    start, end = week_window(report_date, lookback_days=lookback_days)
+    if start == end:
+        return f"{end.year}年{end.month}月{end.day}日"
+    if start.year == end.year and start.month == end.month:
+        return f"{start.year}年{start.month}月{start.day}日–{end.day}日"
+    if start.year == end.year:
+        return f"{start.year}年{start.month}月{start.day}日–{end.month}月{end.day}日"
+    return f"{start.year}年{start.month}月{start.day}日–{end.year}年{end.month}月{end.day}日"
 
 
 def _is_item_line(line: str) -> bool:
@@ -114,7 +132,7 @@ def render_fallback_report(items: list[NewsItem], date_label: str | None = None)
         grouped[item.category or "科技热点"].append(item)
 
     lines = [
-        "# 📡 Furina · 每日科技/AI日报",
+        REPORT_HEADING,
         label,
         "",
         "---",
@@ -149,7 +167,7 @@ def _render_inline_markdown(text: str) -> str:
     return escaped
 
 
-def render_html_report(markdown: str, title: str = "Furina · 每日科技/AI日报") -> str:
+def render_html_report(markdown: str, title: str = REPORT_TITLE) -> str:
     lines = markdown.splitlines()
     intro: list[str] = []
     sections: list[dict[str, object]] = []
@@ -219,7 +237,7 @@ def render_html_report(markdown: str, title: str = "Furina · 每日科技/AI日
             )
         body_html = (
             f"{intro_html}\n"
-            f'<div class="tabs" role="tablist" aria-label="日报分类">\n'
+            f'<div class="tabs" role="tablist" aria-label="周报分类">\n'
             f"{''.join(tab_buttons)}\n</div>\n"
             f"{''.join(tab_panels)}"
         )

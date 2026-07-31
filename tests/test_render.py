@@ -31,7 +31,7 @@ class RenderTests(unittest.TestCase):
             date_label="2026年5月9日",
         )
 
-        self.assertIn("# 📡 Furina · 每日科技/AI日报", report)
+        self.assertIn("# 📡 Furina · 每周科技/AI周报", report)
         self.assertIn("2026年5月9日", report)
         self.assertIn("## 🤖 AI动态", report)
         self.assertIn("## 📦 GitHub Trending", report)
@@ -62,7 +62,7 @@ class RenderTests(unittest.TestCase):
     def test_fix_numbering_normalizes_unnumbered_and_bulleted_section_items(self):
         report = "\n".join(
             [
-                "# 📡 Furina · 每日科技/AI日报",
+                "# 📡 Furina · 每周科技/AI周报",
                 "2026年5月9日",
                 "",
                 "## 🔥 科技热点",
@@ -85,7 +85,7 @@ class RenderTests(unittest.TestCase):
     def test_fix_numbering_restarts_numbering_for_each_section(self):
         report = "\n".join(
             [
-                "# 📡 Furina · 每日科技/AI日报",
+                "# 📡 Furina · 每周科技/AI周报",
                 "",
                 "## 🔥 科技热点",
                 "Tech one",
@@ -110,7 +110,7 @@ class RenderTests(unittest.TestCase):
     def test_fix_numbering_normalizes_plain_section_headings(self):
         report = "\n".join(
             [
-                "# 📡 Furina · 每日科技/AI日报",
+                "# 📡 Furina · 每周科技/AI周报",
                 "",
                 "科技热点",
                 "Tech one",

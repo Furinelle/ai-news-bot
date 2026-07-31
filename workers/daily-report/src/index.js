@@ -1,4 +1,4 @@
-const DEFAULT_KEY = "daily/latest.html";
+const DEFAULT_KEY = "weekly/latest.html";
 
 const CONTENT_TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -40,8 +40,16 @@ export default {
 
 function objectKeyFromPath(pathname) {
   const decodedPath = decodeURIComponent(pathname);
-  if (decodedPath === "/" || decodedPath === "/daily" || decodedPath === "/daily/") {
+  // 周报路径
+  if (decodedPath === "/" || decodedPath === "/weekly" || decodedPath === "/weekly/") {
     return DEFAULT_KEY;
+  }
+  if (decodedPath.startsWith("/weekly/")) {
+    return decodedPath.slice(1).replace(/\/+/g, "/");
+  }
+  // 兼容旧 daily 路径（历史归档）
+  if (decodedPath === "/daily" || decodedPath === "/daily/") {
+    return "daily/latest.html";
   }
   if (decodedPath.startsWith("/daily/")) {
     return decodedPath.slice(1).replace(/\/+/g, "/");
