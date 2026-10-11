@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import os
+from pathlib import Path
+import subprocess
+import tempfile
 from typing import Any, Callable
 
 from .models import NewsItem
@@ -118,6 +122,7 @@ def summarize_with_llm(
     thinking_enabled: bool = False,
     reasoning_effort: str = "high",
     post: Callable[..., Any] | None = None,
+    provider: str = "openai-compatible",
 ) -> str:
     payload = build_chat_payload(
         model=model,
@@ -127,6 +132,32 @@ def summarize_with_llm(
         thinking_enabled=thinking_enabled,
         reasoning_effort=reasoning_effort,
     )
+    if provider == "grok-build":
+        prompt = "\n\n".join(message["content"] for message in payload["messages"])
+        # Keep publisher credentials and the production checkout out of the agent process.
+        env = {key: value for key, value in os.environ.items()
+               if key in {"HOME", "PATH", "USER", "LOGNAME", "LANG", "LC_ALL", "TZ", "TERM"}}
+        with tempfile.TemporaryDirectory(prefix="ai-news-grok-") as directory:
+            prompt_file = Path(directory) / "prompt.txt"
+            prompt_file.write_text(prompt, encoding="utf-8")
+            try:
+                result = subprocess.run(
+                    [str(Path.home() / ".grok/bin/grok"), "--no-subagents", "--tools", "",
+                     "--permission-mode", "dontAsk", "--disable-web-search", "--max-turns", "2",
+                     "--output-format", "plain", "--prompt-file", str(prompt_file)],
+                    cwd=directory, env=env, text=True, capture_output=True, timeout=timeout_seconds,
+                )
+            except (OSError, subprocess.TimeoutExpired) as exc:
+                raise LlmError("Grok Build unavailable or timed out; nothing published") from exc
+        if result.returncode:
+            detail = "usage balance exhausted (HTTP 402)" if "402" in result.stderr else f"exited {result.returncode}; check Oracle grok login"
+            raise LlmError(f"Grok Build {detail}; nothing published")
+        report = result.stdout.strip()
+        if len(report) > 200_000 or not report.startswith("# ") or date_label not in report:
+            raise LlmError("Grok Build response is not a dated weekly report; nothing published")
+        if not all(section in report for section in ["## 🔥 科技热点", "## 🤖 AI动态", "## 📦 GitHub Trending"]):
+            raise LlmError("Grok Build response is missing required sections; nothing published")
+        return fix_numbering(report.strip())
     url = f"{base_url.rstrip('/')}/chat/completions"
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
 

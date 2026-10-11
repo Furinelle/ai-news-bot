@@ -2,8 +2,10 @@
 Description=Run AI News Bot weekly
 
 [Timer]
-# 每周一 08:00（系统时区建议 Asia/Shanghai）
-OnCalendar=Mon *-*-* 08:00:00
+# Every Monday at 08:00 Singapore, beginning 2026-09-21.
+OnCalendar=Mon 2026-09-21..30 08:00:00 Asia/Singapore
+OnCalendar=Mon 2026-10..12-* 08:00:00 Asia/Singapore
+OnCalendar=Mon 2027/1-*-* 08:00:00 Asia/Singapore
 Persistent=true
 Unit=ai-news-bot.service
 

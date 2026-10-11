@@ -32,7 +32,7 @@ class StorageTests(unittest.TestCase):
                 category="你可能感兴趣",
             )
             with NewsStore(database_path) as store:
-                store.mark_seen([item], recommended_on="2026-07-28")
+                store.mark_seen([item])
                 self.assertEqual(
                     store.filter_new([item], interest_cooldown_days=21),
                     [],

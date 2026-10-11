@@ -307,6 +307,7 @@ def build_report(
                 timeout_seconds=config.llm.timeout_seconds,
                 thinking_enabled=config.llm.thinking_enabled,
                 reasoning_effort=config.llm.reasoning_effort,
+                provider=config.llm.provider,
             )
             report = sanitize_github_sections(report, selected)
             report = enforce_section_caps(report)
@@ -575,12 +576,20 @@ def main() -> int:
     parser.add_argument("--no-llm", action="store_true", help="Render a source-link report without calling the LLM.")
     parser.add_argument("--no-r2", action="store_true", help="Skip R2 upload even when r2.enabled is true.")
     parser.add_argument("--out", default="", help="Optional path to write the generated report.")
+    parser.add_argument("--not-before", type=date.fromisoformat, help="Earliest date allowed for publishing.")
     args = parser.parse_args()
 
     try:
         config = load_config(args.config)
         report_day = datetime.now(ZoneInfo("Asia/Shanghai")).date()
         slug = default_report_slug(report_day)
+        sending = args.send and not args.dry_run
+        if sending and args.not_before and report_day < args.not_before:
+            raise ConfigError(f"Publishing is disabled until {args.not_before}")
+        receipt = Path(config.database_path).parent / f"grok-published-{slug}.json"
+        if sending and config.llm.provider == "grok-build" and receipt.exists():
+            print(receipt.read_text(encoding="utf-8"))
+            return 0
         report, selected = build_report(
             args.config,
             args.sources,
@@ -589,6 +598,8 @@ def main() -> int:
             persist_candidates=args.send,
             report_date=report_day,
         )
+        if config.llm.provider == "grok-build" and (not selected or args.no_llm and sending):
+            raise ConfigError("Grok weekly report requires candidates and successful Grok generation")
 
         if args.dry_run or not args.send:
             if args.out:
@@ -720,6 +731,8 @@ def main() -> int:
             "pushplus": pushplus_result,
             "telegram": summarize_telegram_result(telegram_result),
         }
+        if config.llm.provider == "grok-build":
+            receipt.write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
     except (BlogPublishError, ConfigError, LlmError, OSError, KeyError, ValueError) as exc:

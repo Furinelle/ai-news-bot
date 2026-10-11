@@ -5,9 +5,13 @@ After=network-online.target
 
 [Service]
 Type=oneshot
+User=ubuntu
+Environment=HOME=/home/ubuntu
+Environment=PATH=/home/ubuntu/.grok/bin:/usr/local/bin:/usr/bin:/bin
 WorkingDirectory=/opt/ai-news-bot
 EnvironmentFile=/etc/ai-news-bot.env
-ExecStart=/opt/ai-news-bot/.venv/bin/python -m ai_news_bot.main --config config.json --sources sources.json --send
+ExecStart=/usr/bin/flock -n /var/lib/ai-news-bot/grok-weekly.lock /opt/ai-news-bot/.venv/bin/python -m ai_news_bot.main --config config.json --sources sources.json --send --not-before 2026-09-21
+TimeoutStartSec=5400
 StateDirectory=ai-news-bot
 NoNewPrivileges=yes
 PrivateTmp=yes

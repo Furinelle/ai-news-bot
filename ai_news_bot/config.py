@@ -20,6 +20,7 @@ class LlmConfig:
     timeout_seconds: float = 180.0
     thinking_enabled: bool = False
     reasoning_effort: str = "high"
+    provider: str = "openai-compatible"
 
 
 @dataclass(frozen=True)
@@ -123,18 +124,22 @@ def load_config(path: str | Path) -> AppConfig:
     limits_raw = raw.get("limits", {})
     report_raw = raw.get("report", {})
 
+    provider = str(llm_raw.get("provider", "openai-compatible"))
+    if provider not in {"openai-compatible", "grok-build"}:
+        raise ConfigError("Unsupported llm.provider")
     llm = LlmConfig(
         base_url=str(llm_raw.get("base_url", "")).rstrip("/"),
-        api_key=_required_env(str(llm_raw.get("api_key_env", "LLM_API_KEY"))),
+        api_key=_required_env(str(llm_raw.get("api_key_env", "LLM_API_KEY"))) if provider == "openai-compatible" else "",
         model=str(llm_raw.get("model", "")).strip(),
         temperature=float(llm_raw.get("temperature", 0.2)),
         timeout_seconds=float(llm_raw.get("timeout_seconds", 180)),
         thinking_enabled=bool(llm_raw.get("thinking_enabled", False)),
         reasoning_effort=str(llm_raw.get("reasoning_effort", "high")),
+        provider=provider,
     )
-    if not llm.base_url:
+    if provider == "openai-compatible" and not llm.base_url:
         raise ConfigError("llm.base_url is required")
-    if not llm.model:
+    if provider == "openai-compatible" and not llm.model:
         raise ConfigError("llm.model is required")
 
     pushplus_token_env = str(push_raw.get("token_env", "PUSHPLUS_TOKEN"))

@@ -126,3 +126,13 @@ git pull
 - 重大单来源标注「未交叉验证」
 
 这不能替代人工核查。
+
+## Grok Build 周报
+
+可在配置中设置 `llm.provider: "grok-build"`、`llm.timeout_seconds: 1800`，使用服务用户的 `~/.grok/bin/grok` 和独立登录状态生成周报，无需 `LLM_API_KEY`。默认仍为 `openai-compatible`。Grok 的工作目录和提示词使用临时目录，子进程仅继承基础环境变量，禁用工具与网页搜索；生成失败或缺少日期／必需章节时中止，不回退到 API 模型。
+
+仓库的 systemd 模板以 ubuntu 用户每周一 08:00（Asia/Singapore）运行，日期门槛为 2026-09-21；`Persistent=true` 支持恢复后补跑，`flock` 防止服务并发执行。完整发布流程结束后写入 `data/grok-published-<ISO周>.json`，同周再次运行会直接返回已有回执。单独执行 CLI 时应使用相同的锁。现有 Telegram 失败处理只记警告，回执不代表各通知渠道均送达。
+
+安装模板前确认服务用户、目录权限、Grok 登录和主机兼容性。此前 Oracle Neoverse-N1 上 1.0.30 登录曾触发 SIGILL，1.0.24 可用；此为历史兼容性记录，升级前需重新验证。
+
+登录：以服务用户执行 `~/.grok/bin/grok login --device-auth`。预览：加载所需配置环境后执行 `.venv/bin/python -m ai_news_bot.main --dry-run`，不会发布，但会抓取数据和调用 Grok。日志：`journalctl -u ai-news-bot.service`。离线检查：`python3 -m unittest discover -s tests`，使用模拟 CLI、HTTP 和临时数据库，不发送新闻。
