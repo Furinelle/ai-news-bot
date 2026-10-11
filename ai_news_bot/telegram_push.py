@@ -107,7 +107,9 @@ def send_telegram_messages(
     parse_mode: str = "HTML",
     disable_web_page_preview: bool = False,
     post: Callable[..., Any] | None = None,
+    on_sent: Callable[[int], None] | None = None,
 ) -> TelegramSendResult:
+    """Call on_sent with each confirmed message's zero-based index before continuing."""
     if not messages:
         return TelegramSendResult(ok=True, sent=0)
     if not bot_token:
@@ -131,6 +133,8 @@ def send_telegram_messages(
                     parse_mode=parse_mode,
                     disable_web_page_preview=disable_web_page_preview,
                 )
+                if on_sent:
+                    on_sent(sent)
                 sent += 1
     else:
         for message in messages:
@@ -142,6 +146,8 @@ def send_telegram_messages(
                 parse_mode=parse_mode,
                 disable_web_page_preview=disable_web_page_preview,
             )
+            if on_sent:
+                on_sent(sent)
             sent += 1
 
     return TelegramSendResult(ok=True, sent=sent)
@@ -161,17 +167,22 @@ def _send_one(
         parse_mode=parse_mode,
         disable_web_page_preview=disable_web_page_preview,
     )
-    response = post(endpoint, json=payload, timeout=30)
+    try:
+        response = post(endpoint, json=payload, timeout=30)
+    except Exception:
+        raise TelegramPushError("Telegram request failed; delivery is unconfirmed") from None
+    try:
+        response.raise_for_status()
+    except Exception:
+        status_code = getattr(response, "status_code", "unknown")
+        raise TelegramPushError(f"Telegram API HTTP {status_code}") from None
     try:
         body = response.json()
     except ValueError:
-        body = {"ok": True}
-    try:
-        response.raise_for_status()
-    except Exception as exc:
-        description = body.get("description", "Telegram API HTTP error")
-        status_code = getattr(response, "status_code", "unknown")
-        raise TelegramPushError(f"Telegram API HTTP {status_code}: {description}") from exc
-    if not body.get("ok", False):
-        description = body.get("description", "unknown Telegram API error")
-        raise TelegramPushError(str(description))
+        raise TelegramPushError("Telegram API returned invalid JSON") from None
+    if not isinstance(body, dict) or body.get("ok") is not True:
+        raise TelegramPushError("Telegram API did not confirm delivery")
+    result = body.get("result")
+    message_id = result.get("message_id") if isinstance(result, dict) else None
+    if type(message_id) is not int or message_id <= 0:
+        raise TelegramPushError("Telegram API returned no message receipt")
