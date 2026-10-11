@@ -131,7 +131,19 @@ git pull
 
 可在配置中设置 `llm.provider: "grok-build"`、`llm.timeout_seconds: 1800`，使用服务用户的 `~/.grok/bin/grok` 和独立登录状态生成周报，无需 `LLM_API_KEY`。默认仍为 `openai-compatible`。Grok 的工作目录和提示词使用临时目录，子进程仅继承基础环境变量，禁用工具与网页搜索；生成失败或缺少日期／必需章节时中止，不回退到 API 模型。
 
-仓库的 systemd 模板以 ubuntu 用户每周一 08:00（Asia/Singapore）运行，日期门槛为 2026-09-21；`Persistent=true` 支持恢复后补跑，`flock` 防止服务并发执行。完整发布流程结束后写入 `data/grok-published-<ISO周>.json`，同周再次运行会直接返回已有回执。单独执行 CLI 时应使用相同的锁。现有 Telegram 失败处理只记警告，回执不代表各通知渠道均送达。
+仓库的 systemd 模板以 ubuntu 用户每周一 08:00（Asia/Singapore）运行，日期门槛为 2026-09-21；`Persistent=true` 支持恢复后补跑，`flock` 防止服务并发执行。完整发布流程结束后写入 `data/grok-published-<ISO周>.json`，同周再次运行会直接返回已有回执，不重新生成周报。单独执行 CLI 时应使用相同的锁。Telegram 失败会记录 `telegram.ok=false` 和已确认／剩余数量，本次发布命令返回非零；周报发布回执仍保留，避免通知失败导致重新生成或重复发布主要周报。
+
+Telegram 只在 API 返回 `ok=true` 和有效消息 ID 后，逐条提交现有的频道去重记录。若中途失败，用既有归档恢复未发送条目：
+
+```bash
+flock -n /var/lib/ai-news-bot/grok-weekly.lock \
+  .venv/bin/python -m ai_news_bot.main --config config.json \
+  --retry-telegram reports/2026-W40.md
+```
+
+恢复使用当前配置的原 Telegram 频道，跨进程跳过已确认条目，不读取新闻源、不调用 LLM，也不触发 R2、博客、iPhone 或 pushplus。无需 LLM 密钥；仍须通过现有方式加载 Telegram token 环境变量。指定报告和原周报发布回执不会被修改，因此原回执中的渠道结果仍是首次发布时的快照；恢复命令输出当前结果，全部确认返回 0，失败返回非零。
+
+网络异常或坏响应会保留未确认状态。Telegram 已接受消息、但响应丢失或本地 SQLite 尚未提交时，无法完全排除恢复时重复发送；请先检查频道。与定时任务使用同一 `flock`，避免两个发送进程同时处理同一报告。
 
 安装模板前确认服务用户、目录权限、Grok 登录和主机兼容性。此前 Oracle Neoverse-N1 上 1.0.30 登录曾触发 SIGILL，1.0.24 可用；此为历史兼容性记录，升级前需重新验证。
 

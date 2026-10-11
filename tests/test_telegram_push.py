@@ -1,4 +1,5 @@
 import unittest
+import traceback
 
 from ai_news_bot.telegram_push import (
     TelegramPushError,
@@ -25,6 +26,33 @@ class FakeResponse:
 
 
 class TelegramPushTests(unittest.TestCase):
+    def test_bad_success_responses_are_rejected(self):
+        class InvalidJson(FakeResponse):
+            def json(self):
+                raise ValueError("HTML response")
+
+        for response in (
+            InvalidJson(), FakeResponse({"ok": "true"}),
+            FakeResponse({"ok": 1}), FakeResponse({"ok": True}),
+            FakeResponse({"ok": True, "result": {"message_id": True}}),
+            FakeResponse({"ok": True, "result": {"message_id": 0}}),
+            FakeResponse(["unexpected"]),
+        ):
+            confirmed = []
+            with self.subTest(response=response.data), self.assertRaises(TelegramPushError):
+                send_telegram_messages("secret-token", "@channel", ["message"], post=lambda *_a, **_k: response, on_sent=confirmed.append)
+            self.assertEqual(confirmed, [])
+
+    def test_network_errors_do_not_expose_token_in_traceback(self):
+        def failing_post(url, **_kwargs):
+            raise RuntimeError(f"connection failed: {url}")
+
+        with self.assertRaises(TelegramPushError) as caught:
+            send_telegram_messages("secret-token", "@channel", ["message"], post=failing_post)
+        output = "".join(traceback.format_exception(caught.exception))
+        self.assertNotIn("secret-token", output)
+        self.assertNotIn("/bot", output)
+
     def test_extract_github_trending_messages_from_report_section(self):
         report = """# 日报
 
@@ -79,7 +107,7 @@ class TelegramPushTests(unittest.TestCase):
 
         def fake_post(url, **kwargs):
             calls.append((url, kwargs))
-            return FakeResponse({"ok": True})
+            return FakeResponse({"ok": True, "result": {"message_id": len(calls)}})
 
         result = send_telegram_messages(
             bot_token="secret-token",
@@ -109,7 +137,7 @@ class TelegramPushTests(unittest.TestCase):
                 post=fake_post,
             )
 
-        self.assertIn("Telegram API HTTP 400: chat not found", str(ctx.exception))
+        self.assertIn("Telegram API HTTP 400", str(ctx.exception))
         self.assertNotIn("secret-token", str(ctx.exception))
 
 

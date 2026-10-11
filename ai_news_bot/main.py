@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sqlite3
 import sys
 from datetime import date, datetime
 from email.utils import parsedate_to_datetime
@@ -9,7 +10,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from .blog import BlogPublishError, BlogPublishResult, publish_report_to_blog
-from .config import ConfigError, load_config
+from .config import AppConfig, ConfigError, load_config
 from .dedupe import dedupe_items, normalize_url
 from .fetch_github import fetch_github_trending
 from .fetch_hn import fetch_hacker_news
@@ -566,6 +567,42 @@ def summarize_blog_result(result: BlogPublishResult | None) -> dict[str, object]
     }
 
 
+def send_report_telegram(report: str, config: AppConfig) -> TelegramSendResult:
+    if not config.telegram.enabled:
+        raise ConfigError("telegram.enabled must be true for Telegram delivery")
+    if not config.telegram.bot_token:
+        raise ConfigError("TELEGRAM_BOT_TOKEN is required when telegram.enabled is true")
+    if not config.telegram.chat_id:
+        raise ConfigError("telegram.chat_id is required when telegram.enabled is true")
+    entries = extract_github_trending_entries(report)
+    with NewsStore(config.database_path) as store:
+        unsent_urls = set(store.filter_unsent_telegram_github(
+            [entry.url for entry in entries], config.telegram.chat_id,
+        ))
+        unsent = [entry for entry in entries if entry.url in unsent_urls]
+        sent = 0
+
+        def record_sent(index: int) -> None:
+            nonlocal sent
+            entry = unsent[index]
+            store.mark_telegram_github_sent([(entry.url, entry.title)], config.telegram.chat_id)
+            sent += 1
+
+        try:
+            send_telegram_messages(
+                bot_token=config.telegram.bot_token,
+                chat_id=config.telegram.chat_id,
+                messages=[entry.text for entry in unsent],
+                endpoint_base=config.telegram.endpoint_base,
+                disable_web_page_preview=config.telegram.disable_web_page_preview,
+                on_sent=record_sent,
+            )
+        except Exception:
+            warn("Telegram delivery incomplete; use --retry-telegram with the archived report")
+            return TelegramSendResult(ok=False, sent=sent, failed=len(unsent) - sent, skipped=len(entries) - len(unsent))
+    return TelegramSendResult(ok=True, sent=sent, skipped=len(entries) - len(unsent))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Generate and push a weekly technology/AI news report.")
     parser.add_argument("--config", default="config.json", help="Path to config JSON.")
@@ -577,10 +614,18 @@ def main() -> int:
     parser.add_argument("--no-r2", action="store_true", help="Skip R2 upload even when r2.enabled is true.")
     parser.add_argument("--out", default="", help="Optional path to write the generated report.")
     parser.add_argument("--not-before", type=date.fromisoformat, help="Earliest date allowed for publishing.")
+    parser.add_argument("--retry-telegram", metavar="REPORT", help="Send only unsent Telegram GitHub entries from an existing Markdown report.")
     args = parser.parse_args()
+    if args.retry_telegram and (args.send or args.dry_run or args.send_pushplus or args.out):
+        parser.error("--retry-telegram cannot be combined with publishing or preview options")
 
     try:
-        config = load_config(args.config)
+        config = load_config(args.config, require_llm=not bool(args.retry_telegram))
+        if args.retry_telegram:
+            report = Path(args.retry_telegram).read_text(encoding="utf-8")
+            result = send_report_telegram(report, config)
+            print(json.dumps({"telegram": summarize_telegram_result(result)}, ensure_ascii=False, indent=2))
+            return 0 if result.ok else 2
         report_day = datetime.now(ZoneInfo("Asia/Shanghai")).date()
         slug = default_report_slug(report_day)
         sending = args.send and not args.dry_run
@@ -685,41 +730,7 @@ def main() -> int:
 
         telegram_result = None
         if config.telegram.enabled:
-            if not config.telegram.bot_token:
-                raise ConfigError("TELEGRAM_BOT_TOKEN is required when telegram.enabled is true")
-            if not config.telegram.chat_id:
-                raise ConfigError("telegram.chat_id is required when telegram.enabled is true")
-            try:
-                telegram_entries = extract_github_trending_entries(report)
-                with NewsStore(config.database_path) as store:
-                    unsent_urls = set(
-                        normalize_url(url)
-                        for url in store.filter_unsent_telegram_github(
-                            [entry.url for entry in telegram_entries],
-                            config.telegram.chat_id,
-                        )
-                    )
-                unsent_entries = [entry for entry in telegram_entries if normalize_url(entry.url) in unsent_urls]
-                telegram_result = send_telegram_messages(
-                    bot_token=config.telegram.bot_token,
-                    chat_id=config.telegram.chat_id,
-                    messages=[entry.text for entry in unsent_entries],
-                    endpoint_base=config.telegram.endpoint_base,
-                    disable_web_page_preview=config.telegram.disable_web_page_preview,
-                )
-                with NewsStore(config.database_path) as store:
-                    store.mark_telegram_github_sent(
-                        [(entry.url, entry.title) for entry in unsent_entries],
-                        config.telegram.chat_id,
-                    )
-                telegram_result = TelegramSendResult(
-                    ok=telegram_result.ok,
-                    sent=telegram_result.sent,
-                    failed=telegram_result.failed,
-                    skipped=len(telegram_entries) - len(unsent_entries),
-                )
-            except Exception as exc:
-                warn(f"Telegram push failed: {exc}")
+            telegram_result = send_report_telegram(report, config)
 
         mark_items_seen(args.config, selected)
         result = {
@@ -734,8 +745,8 @@ def main() -> int:
         if config.llm.provider == "grok-build":
             receipt.write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
         print(json.dumps(result, ensure_ascii=False, indent=2))
-        return 0
-    except (BlogPublishError, ConfigError, LlmError, OSError, KeyError, ValueError) as exc:
+        return 2 if telegram_result is not None and not telegram_result.ok else 0
+    except (BlogPublishError, ConfigError, LlmError, OSError, KeyError, ValueError, sqlite3.Error) as exc:
         print(f"ERROR: {exc}")
         return 2
 

@@ -113,7 +113,7 @@ def _read_json(path: str | Path) -> dict[str, Any]:
         return json.load(handle)
 
 
-def load_config(path: str | Path) -> AppConfig:
+def load_config(path: str | Path, *, require_llm: bool = True) -> AppConfig:
     raw = _read_json(path)
     llm_raw = raw.get("llm", {})
     push_raw = raw.get("pushplus", {})
@@ -129,7 +129,7 @@ def load_config(path: str | Path) -> AppConfig:
         raise ConfigError("Unsupported llm.provider")
     llm = LlmConfig(
         base_url=str(llm_raw.get("base_url", "")).rstrip("/"),
-        api_key=_required_env(str(llm_raw.get("api_key_env", "LLM_API_KEY"))) if provider == "openai-compatible" else "",
+        api_key=_required_env(str(llm_raw.get("api_key_env", "LLM_API_KEY"))) if require_llm and provider == "openai-compatible" else "",
         model=str(llm_raw.get("model", "")).strip(),
         temperature=float(llm_raw.get("temperature", 0.2)),
         timeout_seconds=float(llm_raw.get("timeout_seconds", 180)),
@@ -137,9 +137,9 @@ def load_config(path: str | Path) -> AppConfig:
         reasoning_effort=str(llm_raw.get("reasoning_effort", "high")),
         provider=provider,
     )
-    if provider == "openai-compatible" and not llm.base_url:
+    if require_llm and provider == "openai-compatible" and not llm.base_url:
         raise ConfigError("llm.base_url is required")
-    if provider == "openai-compatible" and not llm.model:
+    if require_llm and provider == "openai-compatible" and not llm.model:
         raise ConfigError("llm.model is required")
 
     pushplus_token_env = str(push_raw.get("token_env", "PUSHPLUS_TOKEN"))
